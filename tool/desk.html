@@ -1,0 +1,574 @@
+<title>台股決策查核盤</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600&display=swap">
+<style>
+/* 版面：單欄簡報紙。狀態帶 → 個股查核 → 經驗分布 → 證據帳，由「現在」走到「憑什麼」。 */
+:root{
+  --plane:#f6f6f3; --surface:#fdfdfc; --sunken:#efeee9;
+  --ink:#14140f; --ink-2:#52514e; --ink-3:#898781;
+  --rule:#e1e0d9; --axis:#c3c2b7; --ring:rgba(20,20,15,.10);
+  --accent:#2a78d6;          /* 規則在場 */
+  --ma:#eb6834;              /* 均線 */
+  --accent-soft:rgba(42,120,214,.10);
+  --up:#e34948;              /* 台股慣例：紅為漲 */
+  --down:#008300;            /* 綠為跌 */
+  --flat:#898781;
+  --serif:"Noto Serif TC",Georgia,"Songti TC",serif;
+  --sans:"Noto Sans TC",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono","Noto Sans TC",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --plane:#0d0d0c; --surface:#191a19; --sunken:#232322;
+  --ink:#f4f4ef; --ink-2:#c3c2b7; --ink-3:#8f8e87;
+  --rule:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+  --accent:#3987e5; --accent-soft:rgba(57,135,229,.14); --ma:#d95926;
+  --up:#e66767; --down:#008300; --flat:#8f8e87;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --plane:#0d0d0c; --surface:#191a19; --sunken:#232322;
+  --ink:#f4f4ef; --ink-2:#c3c2b7; --ink-3:#8f8e87;
+  --rule:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+  --accent:#3987e5; --accent-soft:rgba(57,135,229,.14); --ma:#d95926;
+  --up:#e66767; --down:#008300; --flat:#8f8e87;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--plane);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.65;margin:0}
+.wrap{max-width:980px;margin:0 auto;padding-block:28px 64px;padding-left:16px;padding-right:16px}
+h1,h2,h3{font-family:var(--serif);font-weight:600;text-wrap:balance;margin:0}
+h1{font-size:clamp(26px,5vw,38px);letter-spacing:.01em;line-height:1.25}
+h2{font-size:clamp(19px,3.2vw,23px);line-height:1.35}
+h3{font-size:15px;font-family:var(--sans);font-weight:700}
+p{margin:0}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-3);font-weight:500}
+.lede{color:var(--ink-2);max-width:62ch}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+section{margin-top:44px}
+.head{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:18px}
+hr{border:0;border-top:1px solid var(--rule);margin:0}
+
+/* 頁首 */
+header{border-bottom:2px solid var(--ink);padding-bottom:18px}
+.sub{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:12px;font-size:12.5px;color:var(--ink-3)}
+.sub b{color:var(--ink-2);font-weight:500}
+.creed{margin-top:14px;padding:12px 14px;background:var(--sunken);
+  border-radius:8px;font-size:13.5px;color:var(--ink-2);max-width:66ch}
+.creed b{color:var(--ink)}
+
+/* 訊號帶 */
+.signal{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.lamp{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;
+  font-size:11px;font-weight:700;letter-spacing:.05em;flex:none}
+.lamp.on{background:var(--accent-soft);color:var(--accent);
+  box-shadow:inset 0 0 0 2px var(--accent)}
+.lamp.off{background:var(--sunken);color:var(--ink-3);
+  box-shadow:inset 0 0 0 2px var(--axis)}
+.sig-txt strong{font-size:19px;font-family:var(--serif);font-weight:600}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));
+  gap:2px;margin-top:16px;background:var(--rule);border-radius:8px;overflow:hidden}
+.fact{background:var(--surface);padding:11px 13px;min-width:0}
+.fact dt{font-size:11.5px;color:var(--ink-3);margin-bottom:2px}
+.fact dd{margin:0;font-family:var(--mono);font-variant-numeric:tabular-nums;
+  font-size:17px;font-weight:500}
+
+/* 圖 */
+
+/* 圖形色彩：SVG 屬性不可靠地支援 var()，一律用 class */
+.plot text{font-family:var(--mono);font-variant-numeric:tabular-nums;fill:var(--ink-3)}
+.plot text.strong{fill:var(--ink)}
+.plot text.lab{font-family:var(--sans)}
+.plot .grid{stroke:var(--rule)}
+.plot .axis{stroke:var(--axis)}
+.plot .zero{stroke:var(--ink)}
+.plot .band{fill:var(--sunken)}
+.plot .up{fill:var(--up)}
+.plot .down{fill:var(--down)}
+.plot .l-idx{stroke:var(--accent)}
+.plot .l-ma{stroke:var(--ma)}
+.plot .cross{stroke:var(--ink-3)}
+.plot .dot-idx{fill:var(--accent);stroke:var(--surface)}
+.plot .dot-ma{fill:var(--ma);stroke:var(--surface)}
+figure{margin:0}
+.plot{width:100%;display:block;touch-action:pan-y}
+figcaption{font-size:12.5px;color:var(--ink-3);margin-top:8px;max-width:64ch}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;
+  color:var(--ink-2);margin-bottom:10px}
+.key{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:3px;border-radius:2px;flex:none}
+.sw.box{height:11px;width:11px;border-radius:3px}
+.tip{position:absolute;pointer-events:none;background:var(--surface);
+  border:1px solid var(--ring);border-radius:7px;padding:7px 10px;font-size:12.5px;
+  box-shadow:0 4px 14px rgba(0,0,0,.13);white-space:nowrap;z-index:5;
+  font-variant-numeric:tabular-nums}
+.plotwrap{position:relative}
+
+/* 個股查核 */
+.lookup{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:5px;flex:1 1 230px;min-width:0}
+label{font-size:12px;color:var(--ink-3)}
+input,select{font:inherit;font-size:14.5px;padding:9px 11px;border-radius:7px;
+  border:1px solid var(--axis);background:var(--surface);color:var(--ink);width:100%}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.chip{font-size:12px;padding:4px 9px;border-radius:999px;border:1px solid var(--ring);
+  background:var(--surface);color:var(--ink-2);cursor:pointer;font-family:var(--mono)}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.result{margin-top:16px}
+.badge{display:inline-block;font-size:11.5px;font-weight:700;padding:3px 9px;
+  border-radius:5px;letter-spacing:.02em}
+.badge.in{background:var(--accent-soft);color:var(--accent)}
+.badge.out{background:var(--sunken);color:var(--ink-3)}
+.bars{display:grid;gap:9px;margin-top:14px}
+.bar-row{display:grid;grid-template-columns:78px 1fr auto;gap:10px;align-items:center;font-size:13px}
+.track{height:9px;background:var(--sunken);border-radius:5px;overflow:hidden;min-width:0}
+.fill{height:100%;border-radius:5px;background:var(--accent)}
+
+/* 表 */
+.scroll{overflow-x:auto;margin-top:14px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:440px}
+th,td{text-align:right;padding:8px 10px;border-bottom:1px solid var(--rule)}
+th:first-child,td:first-child{text-align:left}
+thead th{font-size:11.5px;color:var(--ink-3);font-weight:500;white-space:nowrap}
+tbody td{font-variant-numeric:tabular-nums;font-family:var(--mono)}
+tbody td:first-child,tbody td.txt{font-family:var(--sans)}
+tbody tr:hover{background:var(--sunken)}
+.pos{color:var(--up)} .neg{color:var(--down)}
+
+/* 證據帳 */
+.ledger{display:grid;gap:2px;background:var(--rule);border:1px solid var(--rule);
+  border-radius:10px;overflow:hidden}
+.led{background:var(--surface);padding:14px 16px;display:grid;
+  grid-template-columns:76px 1fr;gap:14px;align-items:start}
+.verdict{font-size:11.5px;font-weight:700;padding:3px 0;letter-spacing:.02em}
+.v-ok{color:var(--accent)} .v-edge{color:var(--ink-2)} .v-no{color:var(--ink-3)}
+.led p{font-size:13.5px;color:var(--ink-2);margin-top:3px}
+.led b{color:var(--ink);font-family:var(--mono);font-weight:500}
+@media (max-width:560px){
+  .led{grid-template-columns:1fr;gap:4px}
+  .signal{grid-template-columns:1fr}
+}
+footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--rule);
+  font-size:12.5px;color:var(--ink-3);max-width:64ch}
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">高波動選股 ＋ 趨勢過濾 ／ 跌深承接</p>
+  <h1>台股決策查核盤</h1>
+  <div class="sub" id="stamp"></div>
+  <p class="creed"><b>這裡沒有預測。</b>只有兩件事：規則現在的狀態，以及歷史上相同條件下實際發生過的分布。
+  研究裡試過的新聞判讀、籌碼追蹤、事件評分模型全部否證，所以這個工具不會替你判斷任何一檔會漲還是會跌。</p>
+</header>
+
+<section id="s-signal">
+  <div class="head">
+    <p class="eyebrow">01　規則狀態</p>
+    <h2>大盤在 120 日均線的哪一邊</h2>
+  </div>
+  <div class="card">
+    <div class="signal">
+      <div class="lamp" id="lamp">—</div>
+      <div class="sig-txt">
+        <strong id="sig-title">讀取中</strong>
+        <p class="lede" id="sig-note" style="font-size:13.5px;margin-top:3px"></p>
+      </div>
+    </div>
+    <dl class="facts" id="facts"></dl>
+  </div>
+
+  <figure style="margin-top:20px">
+    <div class="legend">
+      <span class="key"><span class="sw" style="background:var(--accent)"></span>加權指數</span>
+      <span class="key"><span class="sw" style="background:var(--ma)"></span>120 日均線</span>
+      <span class="key"><span class="sw box" style="background:var(--sunken);box-shadow:inset 0 0 0 1px var(--axis)"></span>規則空手期間</span>
+    </div>
+    <div class="plotwrap" id="wrap-idx">
+      <svg class="plot" id="idx" viewBox="0 0 900 300" preserveAspectRatio="xMidYMid meet" role="img"
+           aria-label="加權指數與 120 日均線，2003 年至今，對數刻度；灰帶為規則空手期間"></svg>
+    </div>
+    <figcaption>對數刻度。灰帶是規則判定空手的期間，合計約佔三分之一的時間。訊號用前一日收盤判斷、隔日執行。</figcaption>
+  </figure>
+</section>
+
+<section id="s-stock">
+  <div class="head">
+    <p class="eyebrow">02　個股查核</p>
+    <h2>這一檔在規則裡的位置</h2>
+    <p class="lede">輸入代號或名稱。工具只告訴你它在波動度排名的哪裡、是否落在本季清單內，以及它過去的跌深事件長什麼樣。</p>
+  </div>
+  <div class="card">
+    <div class="lookup">
+      <div class="field">
+        <label for="q">股票代號或名稱</label>
+        <input id="q" list="dl" autocomplete="off" placeholder="例如 2330 或 台積電">
+        <datalist id="dl"></datalist>
+      </div>
+    </div>
+    <div class="chips" id="quick"></div>
+    <div class="result" id="stock"></div>
+  </div>
+</section>
+
+<section id="s-dist">
+  <div class="head">
+    <p class="eyebrow">03　經驗分布</p>
+    <h2>歷史上這種跌法，後來怎麼了</h2>
+    <p class="lede">2011–2024 年、成交金額前 120 名內的所有跌深事件。規則：5 日內自基準跌逾 8% 進場，相對止跌後分批出場。這是已經發生過的事實分布，不是對下一次的推估。</p>
+  </div>
+  <div class="card">
+    <div class="lookup">
+      <div class="field" style="flex:1 1 150px">
+        <label for="f-drop">跌幅區間</label>
+        <select id="f-drop">
+          <option value="all">全部</option>
+          <option value="8-12">8% ~ 12%</option>
+          <option value="12-18">12% ~ 18%</option>
+          <option value="18-99">18% 以上</option>
+        </select>
+      </div>
+      <div class="field" style="flex:1 1 150px">
+        <label for="f-neg">起跌前有無負面新聞</label>
+        <select id="f-neg">
+          <option value="all">全部</option>
+          <option value="1">有</option>
+          <option value="0">無</option>
+        </select>
+      </div>
+      <div class="field" style="flex:1 1 150px">
+        <label for="f-ma">進場時大盤位置</label>
+        <select id="f-ma">
+          <option value="all">全部</option>
+          <option value="1">在 120 日均線之上</option>
+          <option value="0">在 120 日均線之下</option>
+        </select>
+      </div>
+    </div>
+
+    <dl class="facts" id="dstats" style="margin-top:18px"></dl>
+
+    <figure style="margin-top:20px">
+      <div class="legend">
+        <span class="key"><span class="sw box" style="background:var(--up)"></span>正報酬（紅）</span>
+        <span class="key"><span class="sw box" style="background:var(--down)"></span>負報酬（綠）</span>
+        <span class="key" style="color:var(--ink-3)">台股慣例，與美股相反</span>
+      </div>
+      <div class="plotwrap" id="wrap-hist">
+        <svg class="plot" id="hist" viewBox="0 0 900 272" preserveAspectRatio="xMidYMid meet" role="img"
+             aria-label="跌深事件每筆淨報酬的次數分布"></svg>
+      </div>
+      <figcaption id="hist-cap"></figcaption>
+    </figure>
+
+    <div class="scroll">
+      <table id="ytab">
+        <thead><tr><th>年</th><th>筆數</th><th>勝率</th><th>平均淨報酬</th><th>中位數</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="lede" style="font-size:13px;margin-top:12px;color:var(--ink-3)" id="warn"></p>
+  </div>
+</section>
+
+<section id="s-evi">
+  <div class="head">
+    <p class="eyebrow">04　證據帳</p>
+    <h2>每一條線現在站在哪</h2>
+    <p class="lede">工具呈現的東西分三種等級。把它們分開，是為了不讓「看起來有道理」冒充「檢定過」。</p>
+  </div>
+  <div class="ledger">
+    <div class="led"><span class="verdict v-ok">邊緣通過</span><div>
+      <h3>橫斷面波動度溢酬</h3>
+      <p>買高波動 30 檔對「母體等權」超額 <b>+6.79%</b>（t=<b>2.53</b>），低波動 <b>−6.24%</b>（t=<b>−3.05</b>），兩邊對稱。
+      但 White Reality Check p 停在 <b>0.057~0.060</b>，從未低於 0.05。方向可信，運氣無法排除。</p></div></div>
+    <div class="led"><span class="verdict v-edge">降風險但不加分</span><div>
+      <h3>120 日均線趨勢過濾</h3>
+      <p>把最大回撤從 <b>−72.8%</b> 壓到 <b>−39.5%</b>，夏普升到 <b>0.88</b>，但年化少 <b>3.9pp</b>，超額 t 由 2.56 降為 <b>1.24</b>。
+      同一條均線單獨套在指數上是虧的（RC p=<b>0.99</b>）—— 它只在標的波動極大時才有價值。</p></div></div>
+    <div class="led"><span class="verdict v-edge">真實但不足以獲利</span><div>
+      <h3>跌深反彈</h3>
+      <p>每筆淨報酬 <b>+0.44%</b>、群集 t <b>2.72</b>；排除 2020–2021 後降為 +0.07%、t=1.93。
+      組合層級年化 <b>+5.58%</b>，輸給 0050 的 <b>+11.58%</b>。效應存在，但裝不進一個贏過買進持有的組合。</p></div></div>
+    <div class="led"><span class="verdict v-no">已否證</span><div>
+      <h3>新聞判讀</h3>
+      <p>八種操作化全部失敗。盤前負面新聞單看 t=−4.59，但一旦條件在「已經跌深」上就翻正（<b>+0.111%</b>）；
+      扣成本後方向預測只剩 <b>+0.016%</b>／筆。所以這個工具不讀新聞。</p></div></div>
+    <div class="led"><span class="verdict v-no">已否證</span><div>
+      <h3>事件評分模型</h3>
+      <p>分數與實際淨報酬的 Spearman 相關 <b>+0.005</b>。前 50/30/20/10% 的差異 t 全為負，
+      「後 20%」勝率 <b>59.3%</b> 與「前 10%」<b>62.7%</b> 無實質差距。挑不出好的，也挑不出壞的。</p></div></div>
+    <div class="led"><span class="verdict v-no">已否證</span><div>
+      <h3>籌碼追蹤與 PTT 情緒</h3>
+      <p>跟隨法人買賣超無預測力（外資 t=<b>−0.17</b>、投信 t=<b>+0.34</b>）。PTT 推噓情緒與全文兩種表示法都無增益。</p></div></div>
+  </div>
+</section>
+
+<footer id="foot"></footer>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), fmt=(n,d=1)=>n.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d});
+const sgn=n=>(n>0?'+':'')+fmt(n,2);
+const cls=n=>n>0?'pos':(n<0?'neg':'');
+let D=null;
+
+function facts(el,rows){
+  el.innerHTML=rows.map(r=>`<div class="fact"><dt>${r[0]}</dt><dd${r[2]?` class="${r[2]}"`:''}>${r[1]}</dd></div>`).join('');
+}
+
+/* ---------- 01 訊號 ---------- */
+function renderSignal(){
+  const m=D.market, on=m.on;
+  $('#lamp').className='lamp '+(on?'on':'off');
+  $('#lamp').textContent=on?'持有':'空手';
+  $('#sig-title').textContent=on?'均線之上，規則為持有':'跌破均線，規則為空手';
+  $('#sig-note').textContent=on
+    ? `指數高於 120 日均線 ${fmt(m.gap_pct,1)}%。規則不看漲跌幅，只看在線的哪一邊。`
+    : `指數低於 120 日均線 ${fmt(Math.abs(m.gap_pct),1)}%。規則要求全數出場，閒置資金放定存，不要放 0050。`;
+  facts($('#facts'),[
+    ['加權指數',fmt(m.close,0)],
+    ['120 日均線',fmt(m.ma120,0)],
+    ['價差',sgn(m.gap_pct)+'%',m.gap_pct>0?'pos':'neg'],
+    ['距上次切換',m.days_since_flip+' 天'],
+    ['歷史在場比例','69%'],
+    ['年均切換次數','8.7']
+  ]);
+}
+
+/* ---------- 指數折線 ---------- */
+function drawIndex(){
+  const s=D.market.series, svg=$('#idx');
+  const W=900,H=300,L=52,R=14,T=14,B=26;
+  const iw=W-L-R, ih=H-T-B;
+  const vals=s.c.concat(s.m), lo=Math.log10(Math.min(...vals)*.96), hi=Math.log10(Math.max(...vals)*1.04);
+  const x=i=>L+iw*i/(s.t.length-1);
+  const y=v=>T+ih*(1-(Math.log10(v)-lo)/(hi-lo));
+  let o='';
+  /* 空手灰帶 */
+  let i=0;
+  while(i<s.on.length){
+    if(!s.on[i]){let j=i; while(j<s.on.length&&!s.on[j])j++;
+      o+=`<rect x="${x(i).toFixed(1)}" y="${T}" width="${Math.max(1,x(j-1)-x(i)).toFixed(1)}" height="${ih}" class="band"/>`;
+      i=j;} else i++;
+  }
+  /* 格線 */
+  const ticks=[];
+  for(let e=3;e<=5;e++) for(const m of [1,2,5]){
+    const v=m*Math.pow(10,e), L=Math.log10(v);
+    if(L>=lo&&L<=hi) ticks.push(v);
+  }
+  ticks.forEach(v=>{o+=`<line x1="${L}" y1="${y(v).toFixed(1)}" x2="${W-R}" y2="${y(v).toFixed(1)}" class="grid" stroke-width="1"/>`
+    +`<text x="${L-8}" y="${(y(v)+4).toFixed(1)}" text-anchor="end" font-size="11">${fmt(v,0)}</text>`;});
+  /* 年份 */
+  let last='';
+  s.t.forEach((t,k)=>{const yr=t.slice(0,4);
+    if(yr!==last&&(+yr)%3===0&&yr!==s.t[0].slice(0,4)){
+      o+=`<text x="${x(k).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="11">${yr}</text>`;}
+    if(yr!==last)last=yr;});
+  const path=a=>a.map((v,k)=>`${k?'L':'M'}${x(k).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  o+=`<path d="${path(s.m)}" class="l-ma" fill="none" stroke-width="2" stroke-linejoin="round"/>`;
+  o+=`<path d="${path(s.c)}" class="l-idx" fill="none" stroke-width="2" stroke-linejoin="round"/>`;
+  o+=`<line x1="${L}" y1="${T+ih}" x2="${W-R}" y2="${T+ih}" class="axis" stroke-width="1"/>`;
+  o+=`<g id="idx-cross" style="display:none"><line y1="${T}" y2="${T+ih}" class="cross" stroke-width="1" stroke-dasharray="3 3"/>`
+   +`<circle r="4.5" class="dot-idx" stroke-width="2"/>`
+   +`<circle r="4.5" class="dot-ma" stroke-width="2"/></g>`;
+  svg.innerHTML=o;
+  hookLine(svg,s,x,y,L,iw);
+}
+function hookLine(svg,s,x,y,L,iw){
+  const wrap=$('#wrap-idx'); let tip=null;
+  const g=svg.querySelector('#idx-cross');
+  const move=e=>{
+    const r=svg.getBoundingClientRect();
+    const px=((e.touches?e.touches[0].clientX:e.clientX)-r.left)/r.width*900;
+    let i=Math.round((px-L)/iw*(s.t.length-1));
+    i=Math.max(0,Math.min(s.t.length-1,i));
+    g.style.display='';
+    g.children[0].setAttribute('x1',x(i)); g.children[0].setAttribute('x2',x(i));
+    g.children[1].setAttribute('cx',x(i)); g.children[1].setAttribute('cy',y(s.c[i]));
+    g.children[2].setAttribute('cx',x(i)); g.children[2].setAttribute('cy',y(s.m[i]));
+    if(!tip){tip=document.createElement('div');tip.className='tip';wrap.appendChild(tip);}
+    tip.innerHTML=`<b>${s.t[i]}</b>　${s.on[i]?'持有':'空手'}<br>指數 ${fmt(s.c[i],0)}　均線 ${fmt(s.m[i],0)}`;
+    const wr=wrap.getBoundingClientRect(), lx=x(i)/900*wr.width;
+    tip.style.left=Math.min(Math.max(6,lx-tip.offsetWidth/2),wr.width-tip.offsetWidth-6)+'px';
+    tip.style.top='4px';
+  };
+  const out=()=>{g.style.display='none'; if(tip){tip.remove();tip=null;}};
+  svg.addEventListener('mousemove',move); svg.addEventListener('mouseleave',out);
+  svg.addEventListener('touchmove',e=>{move(e);},{passive:true});
+  svg.addEventListener('touchend',out);
+}
+
+/* ---------- 02 個股 ---------- */
+function renderStockList(){
+  $('#dl').innerHTML=D.stocks.map(s=>`<option value="${s.code} ${s.name}">`).join('');
+  const picks=D.stocks.filter(s=>s.pick).slice(0,6);
+  $('#quick').innerHTML=picks.map(s=>`<button class="chip" data-c="${s.code}">${s.code} ${s.name}</button>`).join('')
+    +`<button class="chip" data-c="2330">2330 台積電</button>`;
+  $('#quick').addEventListener('click',e=>{
+    const b=e.target.closest('.chip'); if(!b)return;
+    const s=D.stocks.find(x=>x.code===b.dataset.c);
+    $('#q').value=s?`${s.code} ${s.name}`:b.dataset.c; showStock(b.dataset.c);
+  });
+}
+function showStock(code){
+  const s=D.stocks.find(x=>x.code===code), box=$('#stock');
+  if(!s){box.innerHTML=`<p class="lede" style="color:var(--ink-3)">找不到 ${code}。這份資料只含 ${D.stocks.length} 檔有完整價量的上市股票。</p>`;return;}
+  const n=D.meta.n_uni, pct=s.rank?Math.round((1-s.rank/n)*100):null;
+  const ps=D.per_stock[code];
+  let h=`<h3 style="font-family:var(--serif);font-size:19px">${s.code}　${s.name}
+    <span class="badge ${s.pick?'in':'out'}" style="vertical-align:3px;margin-left:8px">${s.pick?'在本季 30 檔內':'不在本季清單'}</span></h3>
+    <p class="lede" style="font-size:13.5px;margin-top:4px">${s.cat}　收盤 ${s.px??'—'}</p>`;
+  h+=`<div class="bars">`;
+  h+=`<div class="bar-row"><span style="color:var(--ink-3)">年化波動</span>
+      <span class="track"><span class="fill" style="width:${Math.min(100,s.vol)}%"></span></span>
+      <span class="num">${fmt(s.vol,1)}%</span></div>`;
+  if(s.uni&&s.rank){
+    h+=`<div class="bar-row"><span style="color:var(--ink-3)">波動度排名</span>
+      <span class="track"><span class="fill" style="width:${pct}%;background:${s.pick?'var(--accent)':'var(--axis)'}"></span></span>
+      <span class="num">${s.rank} / ${n}</span></div>`;
+  }
+  h+=`</div>`;
+  h+=s.uni
+    ? `<p class="lede" style="font-size:13px;margin-top:12px;color:var(--ink-3)">在選股母體內（成交金額前 250 名）。規則每季取波動度最高的 30 檔，所以排名第 ${s.rank} 名${s.pick?'落在清單內':'落在清單外'}。</p>`
+    : `<p class="lede" style="font-size:13px;margin-top:12px;color:var(--ink-3)">不在選股母體內 —— 近 60 日平均成交金額排不進前 250 名，規則不會買它。</p>`;
+  if(ps){
+    h+=`<hr style="margin:18px 0 14px">
+      <h3>這檔過去的跌深事件（2011–2024）</h3>
+      <dl class="facts" style="margin-top:10px">
+        <div class="fact"><dt>事件筆數</dt><dd>${ps.n}</dd></div>
+        <div class="fact"><dt>勝率</dt><dd>${fmt(ps.win,1)}%</dd></div>
+        <div class="fact"><dt>平均淨報酬</dt><dd class="${cls(ps.avg)}">${sgn(ps.avg)}%</dd></div>
+        <div class="fact"><dt>中位數</dt><dd class="${cls(ps.med)}">${sgn(ps.med)}%</dd></div>
+      </dl>
+      <p class="lede" style="font-size:13px;margin-top:10px;color:var(--ink-3)">
+      ${ps.n<10?`只有 ${ps.n} 筆，看看就好 —— 這個樣本量算不出任何結論。`:`${ps.n} 筆仍然是小樣本，單檔的數字比整體分布更容易是運氣。`}</p>`;
+  }else{
+    h+=`<hr style="margin:18px 0 14px"><p class="lede" style="font-size:13px;color:var(--ink-3)">2011–2024 年間，這檔的跌深事件不足 3 筆，沒有可看的分布。</p>`;
+  }
+  box.innerHTML=h;
+}
+
+/* ---------- 03 分布 ---------- */
+function filtered(){
+  const e=D.events, fd=$('#f-drop').value, fn=$('#f-neg').value, fm=$('#f-ma').value;
+  const out=[];
+  for(let i=0;i<e.net.length;i++){
+    if(fd!=='all'){const [a,b]=fd.split('-').map(Number); if(!(e.drop[i]>=a&&e.drop[i]<b))continue;}
+    if(fn!=='all'&&(e.neg[i]?1:0)!==+fn)continue;
+    if(fm!=='all'&&(e.above[i]?1:0)!==+fm)continue;
+    out.push(i);
+  }
+  return out;
+}
+const quant=(a,p)=>{if(!a.length)return NaN;const s=[...a].sort((x,y)=>x-y);
+  const k=(s.length-1)*p, f=Math.floor(k); return s[f]+(s[Math.min(f+1,s.length-1)]-s[f])*(k-f);};
+
+function renderDist(){
+  const idx=filtered(), nets=idx.map(i=>D.events.net[i]);
+  const n=nets.length;
+  if(n<20){
+    $('#dstats').innerHTML=`<div class="fact"><dt>符合條件</dt><dd>${n}</dd></div>`;
+    $('#hist').innerHTML=''; $('#hist-cap').textContent='樣本少於 20 筆，不畫分布 —— 畫出來只會讓雜訊看起來像形狀。';
+    $('#ytab').querySelector('tbody').innerHTML=''; $('#warn').textContent='';
+    return;
+  }
+  const win=nets.filter(v=>v>0).length/n*100;
+  const avg=nets.reduce((a,b)=>a+b,0)/n;
+  facts($('#dstats'),[
+    ['符合條件',n.toLocaleString()],
+    ['勝率',fmt(win,1)+'%'],
+    ['平均淨報酬',sgn(avg)+'%',cls(avg)],
+    ['中位數',sgn(quant(nets,.5))+'%',cls(quant(nets,.5))],
+    ['第 25 百分位',sgn(quant(nets,.25))+'%',cls(quant(nets,.25))],
+    ['第 75 百分位',sgn(quant(nets,.75))+'%',cls(quant(nets,.75))],
+  ]);
+  drawHist(nets);
+  yearTable(idx);
+  const lo=quant(nets,.05), hi=quant(nets,.95);
+  $('#warn').textContent=`分布的兩端比平均值重要：最差的 5% 落在 ${sgn(lo)}% 以下，最好的 5% 在 ${sgn(hi)}% 以上。`
+    +`平均值 ${sgn(avg)}% 是這兩端相抵之後的殘值，不是你單筆會拿到的東西。`;
+}
+function drawHist(nets){
+  const svg=$('#hist'), W=900,H=272,L=46,R=14,T=14,B=48, iw=W-L-R, ih=H-T-B;
+  const STEP=2.5, LOB=-30, HIB=30;
+  const nb=Math.round((HIB-LOB)/STEP), bins=new Array(nb).fill(0);
+  nets.forEach(v=>{const c=Math.max(LOB,Math.min(HIB-.001,v));
+    bins[Math.min(nb-1,Math.floor((c-LOB)/STEP))]++;});
+  const mx=Math.max(...bins);
+  const bw=iw/nb, x=i=>L+i*bw, y=v=>T+ih*(1-v/mx);
+  let o='';
+  const step=Math.pow(10,Math.floor(Math.log10(mx/4)))*
+    [1,2,2.5,5,10].find(f=>f*Math.pow(10,Math.floor(Math.log10(mx/4)))>=mx/4);
+  for(let v=0;v<=mx;v+=step){const yy=y(v);
+    o+=`<line x1="${L}" y1="${yy.toFixed(1)}" x2="${W-R}" y2="${yy.toFixed(1)}" class="grid" stroke-width="1"/>`
+     +`<text x="${L-8}" y="${(yy+4).toFixed(1)}" text-anchor="end" font-size="11">${Math.round(v)}</text>`;}
+  bins.forEach((c,i)=>{
+    if(!c)return;
+    const v0=LOB+i*STEP, up=v0>=0;
+    const h=ih-(y(c)-T), bx=x(i)+1, bwid=Math.max(1,bw-2);
+    const r=Math.min(4,bwid/2,h);
+    o+=`<path d="M${bx} ${(T+ih).toFixed(1)} V${(y(c)+r).toFixed(1)} a${r} ${r} 0 0 1 ${r} ${-r} h${(bwid-2*r).toFixed(1)} a${r} ${r} 0 0 1 ${r} ${r} V${(T+ih).toFixed(1)} Z"
+       class="${up?'up':'down'}" data-i="${i}" data-c="${c}" data-v="${v0}"/>`;
+  });
+  const zx=L+((0-LOB)/(HIB-LOB))*iw;
+  o+=`<line x1="${zx.toFixed(1)}" y1="${T}" x2="${zx.toFixed(1)}" y2="${T+ih}" class="zero" stroke-width="1.5"/>`
+   +`<text x="${zx.toFixed(1)}" y="${H-26}" text-anchor="middle" font-size="11" class="strong">0</text>`;
+  [-30,-20,-10,10,20,30].forEach(v=>{const xx=L+((v-LOB)/(HIB-LOB))*iw;
+    o+=`<text x="${xx.toFixed(1)}" y="${H-26}" text-anchor="middle" font-size="11">${v>0?'+':''}${v}</text>`;});
+  o+=`<text x="${(L+iw/2).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="11" class="lab">每筆淨報酬（%，已扣手續費與證交稅）</text>`;
+  o+=`<line x1="${L}" y1="${T+ih}" x2="${W-R}" y2="${T+ih}" class="axis" stroke-width="1"/>`;
+  svg.innerHTML=o;
+  $('#hist-cap').textContent='兩端各含超出範圍的事件。紅在零線右、綠在零線左 —— 顏色與位置說的是同一件事，不必靠顏色分辨。';
+  const wrap=$('#wrap-hist'); let tip=null;
+  svg.onmousemove=e=>{
+    const t=e.target.closest('path[data-i]');
+    if(!t){if(tip){tip.remove();tip=null;}return;}
+    if(!tip){tip=document.createElement('div');tip.className='tip';wrap.appendChild(tip);}
+    const v=+t.dataset.v;
+    tip.innerHTML=`<b>${v>=0?'+':''}${v} ~ ${v+STEP>0?'+':''}${v+STEP}%</b><br>${t.dataset.c} 筆（${fmt(t.dataset.c/nets.length*100,1)}%）`;
+    const wr=wrap.getBoundingClientRect(), br=t.getBoundingClientRect();
+    tip.style.left=Math.min(Math.max(6,br.left-wr.left+br.width/2-tip.offsetWidth/2),wr.width-tip.offsetWidth-6)+'px';
+    tip.style.top=Math.max(2,br.top-wr.top-tip.offsetHeight-6)+'px';
+  };
+  svg.onmouseleave=()=>{if(tip){tip.remove();tip=null;}};
+}
+function yearTable(idx){
+  const by={};
+  idx.forEach(i=>{const y=D.events.y[i];(by[y]=by[y]||[]).push(D.events.net[i]);});
+  const rows=Object.keys(by).sort().map(y=>{
+    const a=by[y], avg=a.reduce((p,c)=>p+c,0)/a.length;
+    return `<tr><td>${y}</td><td>${a.length}</td><td>${fmt(a.filter(v=>v>0).length/a.length*100,1)}%</td>
+      <td class="${cls(avg)}">${sgn(avg)}%</td><td class="${cls(quant(a,.5))}">${sgn(quant(a,.5))}%</td></tr>`;});
+  $('#ytab').querySelector('tbody').innerHTML=rows.join('');
+}
+
+/* ---------- 啟動 ---------- */
+fetch('data.json').then(r=>r.json()).then(d=>{
+  D=d;
+  $('#stamp').innerHTML=`<span>大盤資料至 <b>${d.market.last_date}</b></span>`
+    +`<span>個股基準日 <b>${d.meta.asof}</b>（母體 ${d.meta.n_uni} 檔）</span>`
+    +`<span>事件樣本 <b>${d.meta.ev_start} ~ ${d.meta.ev_end}</b>　${d.events.net.length.toLocaleString()} 筆</span>`;
+  renderSignal(); drawIndex(); renderStockList(); renderDist();
+  const first=d.stocks.find(s=>s.pick);
+  $('#q').value=`${first.code} ${first.name}`; showStock(first.code);
+  $('#q').addEventListener('input',e=>{
+    const v=e.target.value.trim(); const c=v.split(/\s+/)[0];
+    const s=D.stocks.find(x=>x.code===c)||D.stocks.find(x=>x.name===v);
+    if(s)showStock(s.code);
+  });
+  ['#f-drop','#f-neg','#f-ma'].forEach(k=>$(k).addEventListener('change',renderDist));
+  $('#foot').innerHTML=`個股基準日與大盤資料日不同，是因為股價不是同一天抓的 —— 面板最後兩週只有 115 檔更新，`
+    +`用最後一日選股會變成從一個碰巧被重爬的子集裡挑。下次執行前請先把全部股價重爬到同一天。`
+    +`<br><br>資料產生於 ${d.meta.generated}。事件分布為 2011–2024 年、成交金額前 120 名內的跌深事件，`
+    +`已扣手續費 0.1425%×3 折與證交稅 0.3%。`;
+}).catch(e=>{
+  $('#stamp').textContent='資料載入失敗：'+e.message;
+});
+let _rz;window.addEventListener('resize',()=>{clearTimeout(_rz);
+  _rz=setTimeout(()=>{if(D){drawIndex();renderDist();}},180);});
+</script>

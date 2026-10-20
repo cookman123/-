@@ -1,0 +1,58 @@
+[22:43] 特徵庫_surv 開始
+存活 383 檔＋下市 75 檔
+載入價格面板　2010-01-01 ~ 2026-12-31
+  面板 4,107 日 × 453 檔
+  已處理 100/458 檔
+  已處理 200/458 檔
+  已處理 300/458 檔
+  母體遮罩：平均每日 245 檔
+  時間序列        49 個
+  相對市場與產業     11 個
+  流動性與微結構      6 個
+  可交易性         9 個
+  美股隔夜         9 個
+  橫斷面百分位      21 個
+  合計 105 個特徵
+
+============================================================================================
+前視稽核：各特徵與未來一日報酬的相關係數
+============================================================================================
+  特徵                               相關         樣本數
+  ovn_IXIC                    +0.1620   1,463,196
+  ovn_SOX                     +0.1562   1,463,196
+  ovn_GSPC                    +0.1478   1,463,196
+  ovn_IXIC_x_beta             +0.1212   1,110,831
+  ovn_SOX_x_beta              +0.1200   1,110,831
+  ovn_GSPC_x_beta             +0.1127   1,045,891
+  trd_limit_up                +0.0820   1,463,545
+  trd_up_streak               +0.0784   1,463,545
+  ts_oc_gap                   +0.0554   1,453,792
+  trd_limit_dn                -0.0511   1,463,545
+  trd_dn_streak               -0.0451   1,463,545
+  trd_locked                  +0.0431   1,463,545
+
+  ⚠ 2 個特徵與未來報酬相關超過 0.15，請逐一檢查：
+    ovn_IXIC　+0.1620
+    ovn_SOX　+0.1562
+
+疊成長表…
+  疊表 30/105
+  疊表 60/105
+  疊表 90/105
+feature_engineering.py:223: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  long[nm] = s.reindex(long.index).astype("float32")
+feature_engineering.py:223: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  long[nm] = s.reindex(long.index).astype("float32")
+
+============================================================================================
+  長表 1,007,483 列 × 105 特徵　2010-04 ~ 2026-10
+  缺值比例 7.90%　檔案 435 MB　耗時 1.6 分
+  ts_     49 個　單檔時間序列：報酬、波動（含 Parkinson／Garman-Klass）、均線、KD／RSI／MAC
+  rel_    11 個　相對市場與產業：超額報酬、beta、相關、殘差波動、產業 leave-one-out 超額
+  liq_     6 個　流動性與微結構：成交金額、Amihud 非流動性、零報酬日比例、Corwin-Schultz 價差代理
+  trd_     9 個　可交易性：漲跌停旗標與距離、連續鎖死天數、近期漲跌停次數
+  ovn_     9 個　美股隔夜：費半／那斯達克／標普前一夜報酬與個股 beta 交互項
+  cs_     21 個　橫斷面百分位：每日在母體內把各訊號排成 0~1
+
+輸出：data\features\panel_surv.pkl
+[22:44] 結束 exit 0

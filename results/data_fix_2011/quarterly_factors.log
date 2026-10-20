@@ -1,0 +1,68 @@
+載入特徵庫 panel.pkl…
+  1,021,879 列 × 105 特徵
+載入價格面板（算季報酬用開盤價）…
+  季數 66　2010-03 ~ 2026-06
+  季末樣本 16,497 列（平均每季 250 檔）
+
+  已測 20/105
+C:\Users\<user>\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\nanops.py:1673: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  return spearmanr(a, b)[0]
+quarterly_factors.py:163: RuntimeWarning: Mean of empty slice.
+  t_ic = float(ic.mean() / (ic.std(ddof=1) / np.sqrt(len(ic))))
+C:\Users\<user>\AppData\Local\Programs\Python\Python312\Lib\site-packages\numpy\_core\_methods.py:144: RuntimeWarning: invalid value encountered in scalar divide
+  ret = ret.dtype.type(ret / rcount)
+C:\Users\<user>\AppData\Local\Programs\Python\Python312\Lib\site-packages\numpy\_core\_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
+  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
+C:\Users\<user>\AppData\Local\Programs\Python\Python312\Lib\site-packages\numpy\_core\_methods.py:180: RuntimeWarning: invalid value encountered in divide
+  arrmean = um.true_divide(arrmean, div, out=arrmean,
+C:\Users\<user>\AppData\Local\Programs\Python\Python312\Lib\site-packages\numpy\_core\_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
+  ret = ret.dtype.type(ret / rcount)
+quarterly_factors.py:170: RuntimeWarning: Mean of empty slice.
+  rows.append({"特徵": c, "季數": len(ic), "IC平均": ic.mean(),
+  已測 40/105
+  已測 60/105
+  已測 80/105
+  已測 100/105
+
+========================================================================================================
+季頻因子：IC t 值絕對值最大的 15 個
+========================================================================================================
+  特徵                         季數     IC平均    IC_t     IC_p      季均價差      年化扣成本     勝率  FDR
+  ts_pos120                  64  +0.0498    2.97   0.0042    +3.80%    +10.87%    62%     
+  ts_kd_diff                 66  -0.0351   -2.91   0.0050    -2.33%    -12.88%    27%     
+  ts_macd_sig                66  -0.0399   -2.74   0.0080    -2.72%    -15.18%    38%     
+  ts_skew60                  65  -0.0315   -2.53   0.0137    +0.18%     -2.89%    46%     
+  cs_ts_skew60               65  -0.0315   -2.53   0.0137    +0.18%     -2.89%    46%     
+  trd_big_move20             66  -0.0430   -2.31   0.0243    +3.29%     +7.59%    50%     
+  trd_dn_streak               8  +0.0781    2.16   0.0680    -1.17%     -8.47%    39%     
+  trd_limit_dn                8  +0.0780    2.16   0.0681    -1.17%     -8.47%    39%     
+  cs_ts_ret60                65  +0.0361    2.14   0.0360    +4.76%    +14.17%    62%     
+  rel_excess60               65  +0.0361    2.14   0.0360    +4.76%    +14.17%    62%     
+  ts_ret60                   65  +0.0361    2.14   0.0360    +4.76%    +14.17%    62%     
+  ts_oc_gap                  66  -0.0284   -2.14   0.0360    -0.85%     -9.86%    38%     
+  ts_vol5                    66  -0.0405   -2.07   0.0422    +3.49%     +8.89%    58%     
+  rel_corr60                 65  +0.0365    2.07   0.0423    +0.60%     -3.78%    42%     
+  ts_ma5_dev                 66  -0.0310   -2.07   0.0423    -0.73%    -11.31%    33%     
+
+  105 個特徵中，FDR=10% 下通過 0 個
+
+========================================================================================================
+多重比較：White Reality Check ／ SPA
+========================================================================================================
+  變體 105 組　季數 66
+  最佳：cs_ts_vol60　季均 +6.13%　年化 +21.27%
+  K = 105
+  n = 66
+  平均區塊 = 4
+  最佳策略序號 = 71
+  RC統計量 = 0.4981
+  RC_p = 0.0315　→ 通過
+  SPA統計量 = 3.4017
+  SPA_p = 0.0190　→ 通過
+  最佳策略單獨t值 = 3.4017
+
+判讀
+  單一特徵的 t 值不算數：105 個特徵隨機也會冒出幾個 p<0.05。
+  要同時過 FDR 與 Reality Check，而且逐季穩定，才值得接到策略上。
+
+輸出：results\quarterly\factors.csv

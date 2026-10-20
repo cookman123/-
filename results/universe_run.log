@@ -1,0 +1,15 @@
+=== 母體敏感度檢查　2026-10-08 22:10 ===
+
+[1/7] 覆蓋稽核（前 250 名版）　→ results/universe/coverage_250.log
+        結束碼 0　耗時 0.2 分
+[2/7] 建全母體特徵庫　→ results/universe/fe_full.log
+        結束碼 0　耗時 0.9 分
+[3/7] 覆蓋稽核（全母體版）　→ results/universe/coverage_full.log
+        結束碼 0　耗時 0.3 分
+Traceback (most recent call last):
+  File "run_universe_check.py", line 71, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "run_universe_check.py", line 54, in main
+    print(f"[{i}/{len(STEPS)}] {name}　→ results/universe/{log}", flush=True)
+UnicodeEncodeError: 'cp950' codec can't encode character '\u30fb' in position 8: illegal multibyte sequence

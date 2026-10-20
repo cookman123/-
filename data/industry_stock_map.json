@@ -1,0 +1,2184 @@
+[
+  {
+    "code": "3008",
+    "name": "大立光",
+    "category": "光電",
+    "market_cap": 814218776325.0
+  },
+  {
+    "code": "3481",
+    "name": "群創",
+    "category": "光電",
+    "market_cap": 389073910311.9
+  },
+  {
+    "code": "2409",
+    "name": "友達",
+    "category": "光電",
+    "market_cap": 221884709776.8
+  },
+  {
+    "code": "3406",
+    "name": "玉晶光",
+    "category": "光電",
+    "market_cap": 113306778315.0
+  },
+  {
+    "code": "2486",
+    "name": "一詮",
+    "category": "光電",
+    "market_cap": 55190736045.0
+  },
+  {
+    "code": "6278",
+    "name": "台表科",
+    "category": "光電",
+    "market_cap": 53508898599.0
+  },
+  {
+    "code": "3563",
+    "name": "牧德",
+    "category": "光電",
+    "market_cap": 41062870836.0
+  },
+  {
+    "code": "6116",
+    "name": "彩晶",
+    "category": "光電",
+    "market_cap": 40449966141.65
+  },
+  {
+    "code": "3019",
+    "name": "亞光",
+    "category": "光電",
+    "market_cap": 38396036387.5
+  },
+  {
+    "code": "6176",
+    "name": "瑞儀",
+    "category": "光電",
+    "market_cap": 32156635213.4
+  },
+  {
+    "code": "2323",
+    "name": "中環",
+    "category": "光電"
+  },
+  {
+    "code": "2349",
+    "name": "錸德",
+    "category": "光電"
+  },
+  {
+    "code": "2374",
+    "name": "佳能",
+    "category": "光電"
+  },
+  {
+    "code": "2393",
+    "name": "億光",
+    "category": "光電"
+  },
+  {
+    "code": "2406",
+    "name": "國碩",
+    "category": "光電"
+  },
+  {
+    "code": "2426",
+    "name": "鼎元",
+    "category": "光電"
+  },
+  {
+    "code": "2429",
+    "name": "銘旺科",
+    "category": "光電"
+  },
+  {
+    "code": "2438",
+    "name": "翔耀",
+    "category": "光電"
+  },
+  {
+    "code": "2466",
+    "name": "冠西電",
+    "category": "光電"
+  },
+  {
+    "code": "2317",
+    "name": "鴻海",
+    "category": "其他電子",
+    "market_cap": 3490785131256.0
+  },
+  {
+    "code": "2360",
+    "name": "致茂",
+    "category": "其他電子",
+    "market_cap": 888763600780.0
+  },
+  {
+    "code": "3665",
+    "name": "貿聯-KY",
+    "category": "其他電子",
+    "market_cap": 398158917975.0
+  },
+  {
+    "code": "2404",
+    "name": "漢唐",
+    "category": "其他電子",
+    "market_cap": 197257232430.0
+  },
+  {
+    "code": "6139",
+    "name": "亞翔",
+    "category": "其他電子",
+    "market_cap": 166552036868.0
+  },
+  {
+    "code": "6196",
+    "name": "帆宣",
+    "category": "其他電子",
+    "market_cap": 114791684609.0
+  },
+  {
+    "code": "2474",
+    "name": "可成",
+    "category": "其他電子",
+    "market_cap": 111535961076.0
+  },
+  {
+    "code": "2354",
+    "name": "鴻準",
+    "category": "其他電子",
+    "market_cap": 92224434518.4
+  },
+  {
+    "code": "6691",
+    "name": "洋基工程",
+    "category": "其他電子",
+    "market_cap": 82532002740.0
+  },
+  {
+    "code": "6409",
+    "name": "旭隼",
+    "category": "其他電子",
+    "market_cap": 77663138080.0
+  },
+  {
+    "code": "2312",
+    "name": "金寶",
+    "category": "其他電子"
+  },
+  {
+    "code": "2359",
+    "name": "所羅門",
+    "category": "其他電子"
+  },
+  {
+    "code": "2373",
+    "name": "震旦行",
+    "category": "其他電子"
+  },
+  {
+    "code": "2390",
+    "name": "云辰",
+    "category": "其他電子"
+  },
+  {
+    "code": "2423",
+    "name": "固緯",
+    "category": "其他電子"
+  },
+  {
+    "code": "2433",
+    "name": "互盛電",
+    "category": "其他電子"
+  },
+  {
+    "code": "1717",
+    "name": "長興",
+    "category": "化學",
+    "market_cap": 83726155648.1
+  },
+  {
+    "code": "1773",
+    "name": "勝一",
+    "category": "化學",
+    "market_cap": 47700000000.0
+  },
+  {
+    "code": "1722",
+    "name": "台肥",
+    "category": "化學",
+    "market_cap": 41013000000.0
+  },
+  {
+    "code": "4766",
+    "name": "南寶",
+    "category": "化學",
+    "market_cap": 40572067470.0
+  },
+  {
+    "code": "1711",
+    "name": "永光",
+    "category": "化學",
+    "market_cap": 21499274870.5
+  },
+  {
+    "code": "4722",
+    "name": "國精化",
+    "category": "化學",
+    "market_cap": 19404068651.0
+  },
+  {
+    "code": "1723",
+    "name": "中碳",
+    "category": "化學",
+    "market_cap": 18976048848.0
+  },
+  {
+    "code": "1709",
+    "name": "和益",
+    "category": "化學",
+    "market_cap": 18627485421.6
+  },
+  {
+    "code": "4764",
+    "name": "雙鍵",
+    "category": "化學",
+    "market_cap": 17878290958.0
+  },
+  {
+    "code": "1718",
+    "name": "中纖",
+    "category": "化學",
+    "market_cap": 17702010322.5
+  },
+  {
+    "code": "1708",
+    "name": "東鹼",
+    "category": "化學"
+  },
+  {
+    "code": "1710",
+    "name": "東聯",
+    "category": "化學"
+  },
+  {
+    "code": "1712",
+    "name": "興農",
+    "category": "化學"
+  },
+  {
+    "code": "1713",
+    "name": "國化",
+    "category": "化學"
+  },
+  {
+    "code": "1714",
+    "name": "和桐",
+    "category": "化學"
+  },
+  {
+    "code": "1721",
+    "name": "三晃",
+    "category": "化學"
+  },
+  {
+    "code": "2330",
+    "name": "台積電",
+    "category": "半導體",
+    "market_cap": 61719040759460.0
+  },
+  {
+    "code": "2454",
+    "name": "聯發科",
+    "category": "半導體",
+    "market_cap": 7270435336890.0
+  },
+  {
+    "code": "3711",
+    "name": "日月光投控",
+    "category": "半導體",
+    "market_cap": 2704696230610.0
+  },
+  {
+    "code": "2303",
+    "name": "聯電",
+    "category": "半導體",
+    "market_cap": 1784953333658.0
+  },
+  {
+    "code": "2408",
+    "name": "南亞科",
+    "category": "半導體",
+    "market_cap": 1699226402795.0
+  },
+  {
+    "code": "7769",
+    "name": "鴻勁",
+    "category": "半導體",
+    "market_cap": 1102071250000.0
+  },
+  {
+    "code": "3443",
+    "name": "創意",
+    "category": "半導體",
+    "market_cap": 826853490870.0
+  },
+  {
+    "code": "2344",
+    "name": "華邦電",
+    "category": "半導體",
+    "market_cap": 760500032617.0
+  },
+  {
+    "code": "3189",
+    "name": "景碩",
+    "category": "半導體",
+    "market_cap": 432066495200.0
+  },
+  {
+    "code": "2379",
+    "name": "瑞昱",
+    "category": "半導體",
+    "market_cap": 371169101520.0
+  },
+  {
+    "code": "2302",
+    "name": "麗正",
+    "category": "半導體"
+  },
+  {
+    "code": "2329",
+    "name": "華泰",
+    "category": "半導體"
+  },
+  {
+    "code": "2337",
+    "name": "旺宏",
+    "category": "半導體"
+  },
+  {
+    "code": "2338",
+    "name": "光罩",
+    "category": "半導體"
+  },
+  {
+    "code": "2340",
+    "name": "台亞",
+    "category": "半導體"
+  },
+  {
+    "code": "2342",
+    "name": "茂矽",
+    "category": "半導體"
+  },
+  {
+    "code": "2351",
+    "name": "順德",
+    "category": "半導體"
+  },
+  {
+    "code": "1303",
+    "name": "南亞",
+    "category": "塑膠",
+    "market_cap": 1776504035936.0
+  },
+  {
+    "code": "1301",
+    "name": "台塑",
+    "category": "塑膠",
+    "market_cap": 397222224734.4
+  },
+  {
+    "code": "1326",
+    "name": "台化",
+    "category": "塑膠",
+    "market_cap": 385666057947.8
+  },
+  {
+    "code": "1314",
+    "name": "中石化",
+    "category": "塑膠",
+    "market_cap": 30846528559.5
+  },
+  {
+    "code": "1312",
+    "name": "國喬",
+    "category": "塑膠",
+    "market_cap": 22593980854.4
+  },
+  {
+    "code": "1313",
+    "name": "聯成",
+    "category": "塑膠",
+    "market_cap": 15903610978.65
+  },
+  {
+    "code": "1304",
+    "name": "台聚",
+    "category": "塑膠",
+    "market_cap": 14502914700.0
+  },
+  {
+    "code": "1307",
+    "name": "三芳",
+    "category": "塑膠",
+    "market_cap": 12073780124.1
+  },
+  {
+    "code": "4306",
+    "name": "炎洲",
+    "category": "塑膠",
+    "market_cap": 9745303910.4
+  },
+  {
+    "code": "1308",
+    "name": "亞聚",
+    "category": "塑膠",
+    "market_cap": 8312414866.0
+  },
+  {
+    "code": "1305",
+    "name": "華夏",
+    "category": "塑膠"
+  },
+  {
+    "code": "1309",
+    "name": "台達化",
+    "category": "塑膠"
+  },
+  {
+    "code": "1310",
+    "name": "台苯",
+    "category": "塑膠"
+  },
+  {
+    "code": "8464",
+    "name": "億豐",
+    "category": "居家生活",
+    "market_cap": 109589554800.0
+  },
+  {
+    "code": "9911",
+    "name": "櫻花",
+    "category": "居家生活",
+    "market_cap": 18075614933.1
+  },
+  {
+    "code": "9924",
+    "name": "福興",
+    "category": "居家生活",
+    "market_cap": 5683717447.200001
+  },
+  {
+    "code": "8482",
+    "name": "商億-KY",
+    "category": "居家生活",
+    "market_cap": 5065984600.0
+  },
+  {
+    "code": "9934",
+    "name": "成霖",
+    "category": "居家生活",
+    "market_cap": 4019745888.3599997
+  },
+  {
+    "code": "2062",
+    "name": "橋椿",
+    "category": "居家生活",
+    "market_cap": 3609894443.6
+  },
+  {
+    "code": "9935",
+    "name": "慶豐富",
+    "category": "居家生活",
+    "market_cap": 3201100668.0
+  },
+  {
+    "code": "6754",
+    "name": "匯僑設計",
+    "category": "居家生活",
+    "market_cap": 2699400000.0
+  },
+  {
+    "code": "3557",
+    "name": "嘉威",
+    "category": "居家生活",
+    "market_cap": 1960333863.75
+  },
+  {
+    "code": "6807",
+    "name": "峰源-KY",
+    "category": "居家生活",
+    "market_cap": 1782000000.0
+  },
+  {
+    "code": "6671",
+    "name": "三能-KY",
+    "category": "居家生活"
+  },
+  {
+    "code": "8454",
+    "name": "富邦媒",
+    "category": "數位雲端",
+    "market_cap": 64388991825.0
+  },
+  {
+    "code": "7722",
+    "name": "LINEPAY",
+    "category": "數位雲端",
+    "market_cap": 18706800000.0
+  },
+  {
+    "code": "7765",
+    "name": "中華資安",
+    "category": "數位雲端",
+    "market_cap": 9763440000.0
+  },
+  {
+    "code": "3130",
+    "name": "一零四",
+    "category": "數位雲端",
+    "market_cap": 6920260950.0
+  },
+  {
+    "code": "6689",
+    "name": "伊雲谷",
+    "category": "數位雲端",
+    "market_cap": 4556000000.0
+  },
+  {
+    "code": "6902",
+    "name": "GOGOLOOK",
+    "category": "數位雲端",
+    "market_cap": 4459008474.0
+  },
+  {
+    "code": "6165",
+    "name": "浪凡",
+    "category": "數位雲端",
+    "market_cap": 3736013535.15
+  },
+  {
+    "code": "7721",
+    "name": "微程式",
+    "category": "數位雲端",
+    "market_cap": 3233608000.0
+  },
+  {
+    "code": "6614",
+    "name": "資拓宏宇",
+    "category": "數位雲端",
+    "market_cap": 2859415469.4500003
+  },
+  {
+    "code": "6906",
+    "name": "現觀科",
+    "category": "數位雲端",
+    "market_cap": 2743359320.0
+  },
+  {
+    "code": "2105",
+    "name": "正新",
+    "category": "橡膠",
+    "market_cap": 96918324526.4
+  },
+  {
+    "code": "2103",
+    "name": "台橡",
+    "category": "橡膠",
+    "market_cap": 22170312909.3
+  },
+  {
+    "code": "2101",
+    "name": "南港",
+    "category": "橡膠",
+    "market_cap": 21907956884.4
+  },
+  {
+    "code": "2106",
+    "name": "建大",
+    "category": "橡膠",
+    "market_cap": 15755685000.0
+  },
+  {
+    "code": "2108",
+    "name": "南帝",
+    "category": "橡膠",
+    "market_cap": 13861528950.85
+  },
+  {
+    "code": "2104",
+    "name": "國際中橡",
+    "category": "橡膠",
+    "market_cap": 10290466381.25
+  },
+  {
+    "code": "2102",
+    "name": "泰豐",
+    "category": "橡膠",
+    "market_cap": 8448926344.95
+  },
+  {
+    "code": "2107",
+    "name": "厚生",
+    "category": "橡膠",
+    "market_cap": 8075584440.0
+  },
+  {
+    "code": "2114",
+    "name": "鑫永銓",
+    "category": "橡膠",
+    "market_cap": 6910065240.2
+  },
+  {
+    "code": "2109",
+    "name": "華豐",
+    "category": "橡膠",
+    "market_cap": 4106432269.8
+  },
+  {
+    "code": "1101",
+    "name": "台泥",
+    "category": "水泥",
+    "market_cap": 185742520895.1
+  },
+  {
+    "code": "1102",
+    "name": "亞泥",
+    "category": "水泥",
+    "market_cap": 123952372690.95
+  },
+  {
+    "code": "1104",
+    "name": "環泥",
+    "category": "水泥",
+    "market_cap": 18300070396.4
+  },
+  {
+    "code": "1103",
+    "name": "嘉泥",
+    "category": "水泥",
+    "market_cap": 10827369189.0
+  },
+  {
+    "code": "1110",
+    "name": "東泥",
+    "category": "水泥",
+    "market_cap": 8837412313.65
+  },
+  {
+    "code": "1109",
+    "name": "信大",
+    "category": "水泥",
+    "market_cap": 4571528831.2
+  },
+  {
+    "code": "1108",
+    "name": "幸福",
+    "category": "水泥",
+    "market_cap": 4472355441.45
+  },
+  {
+    "code": "2207",
+    "name": "和泰車",
+    "category": "汽車",
+    "market_cap": 289693439360.0
+  },
+  {
+    "code": "2206",
+    "name": "三陽工業",
+    "category": "汽車",
+    "market_cap": 49205768414.4
+  },
+  {
+    "code": "1319",
+    "name": "東陽",
+    "category": "汽車",
+    "market_cap": 46608392958.4
+  },
+  {
+    "code": "2201",
+    "name": "裕隆",
+    "category": "汽車",
+    "market_cap": 31939537342.35
+  },
+  {
+    "code": "2204",
+    "name": "中華",
+    "category": "汽車",
+    "market_cap": 28843619818.2
+  },
+  {
+    "code": "6605",
+    "name": "帝寶",
+    "category": "汽車",
+    "market_cap": 22551029992.0
+  },
+  {
+    "code": "2247",
+    "name": "汎德永業",
+    "category": "汽車",
+    "market_cap": 18523157517.0
+  },
+  {
+    "code": "4551",
+    "name": "智伸科",
+    "category": "汽車",
+    "market_cap": 17917098439.0
+  },
+  {
+    "code": "2227",
+    "name": "裕日車",
+    "category": "汽車",
+    "market_cap": 13650000000.0
+  },
+  {
+    "code": "1536",
+    "name": "和大",
+    "category": "汽車",
+    "market_cap": 12901877476.25
+  },
+  {
+    "code": "1338",
+    "name": "廣華-KY",
+    "category": "汽車"
+  },
+  {
+    "code": "1339",
+    "name": "昭輝",
+    "category": "汽車"
+  },
+  {
+    "code": "1512",
+    "name": "瑞利",
+    "category": "汽車"
+  },
+  {
+    "code": "1521",
+    "name": "大億",
+    "category": "汽車"
+  },
+  {
+    "code": "1522",
+    "name": "堤維西",
+    "category": "汽車"
+  },
+  {
+    "code": "1524",
+    "name": "耿鼎",
+    "category": "汽車"
+  },
+  {
+    "code": "1525",
+    "name": "江申",
+    "category": "汽車"
+  },
+  {
+    "code": "1533",
+    "name": "車王電",
+    "category": "汽車"
+  },
+  {
+    "code": "6505",
+    "name": "台塑化",
+    "category": "油電燃氣",
+    "market_cap": 766839751986.0
+  },
+  {
+    "code": "8926",
+    "name": "台汽電",
+    "category": "油電燃氣",
+    "market_cap": 48571497000.0
+  },
+  {
+    "code": "9937",
+    "name": "全國",
+    "category": "油電燃氣",
+    "market_cap": 16719226300.0
+  },
+  {
+    "code": "9908",
+    "name": "大台北",
+    "category": "油電燃氣",
+    "market_cap": 14974382000.0
+  },
+  {
+    "code": "9926",
+    "name": "新海",
+    "category": "油電燃氣",
+    "market_cap": 8804674878.75
+  },
+  {
+    "code": "9918",
+    "name": "欣天然",
+    "category": "油電燃氣",
+    "market_cap": 7745056733.7
+  },
+  {
+    "code": "9931",
+    "name": "欣高",
+    "category": "油電燃氣",
+    "market_cap": 4086537836.85
+  },
+  {
+    "code": "2616",
+    "name": "山隆",
+    "category": "油電燃氣",
+    "market_cap": 1818984207.75
+  },
+  {
+    "code": "1802",
+    "name": "台玻",
+    "category": "玻璃",
+    "market_cap": 170121556800.0
+  },
+  {
+    "code": "1810",
+    "name": "和成",
+    "category": "玻璃",
+    "market_cap": 7104137396.5
+  },
+  {
+    "code": "1809",
+    "name": "中釉",
+    "category": "玻璃",
+    "market_cap": 6230664250.099999
+  },
+  {
+    "code": "1806",
+    "name": "冠軍",
+    "category": "玻璃",
+    "market_cap": 3119326921.3
+  },
+  {
+    "code": "1817",
+    "name": "凱撒衛",
+    "category": "玻璃",
+    "market_cap": 2918520000.0000005
+  },
+  {
+    "code": "6446",
+    "name": "藥華藥",
+    "category": "生技",
+    "market_cap": 509033736380.0
+  },
+  {
+    "code": "7799",
+    "name": "禾榮科",
+    "category": "生技",
+    "market_cap": 72317965000.0
+  },
+  {
+    "code": "6472",
+    "name": "保瑞",
+    "category": "生技",
+    "market_cap": 52635496308.0
+  },
+  {
+    "code": "1795",
+    "name": "美時",
+    "category": "生技",
+    "market_cap": 47479404762.0
+  },
+  {
+    "code": "6491",
+    "name": "晶碩",
+    "category": "生技",
+    "market_cap": 30654000000.0
+  },
+  {
+    "code": "3705",
+    "name": "永信",
+    "category": "生技",
+    "market_cap": 14919687048.0
+  },
+  {
+    "code": "6589",
+    "name": "台康生技",
+    "category": "生技",
+    "market_cap": 14786236872.55
+  },
+  {
+    "code": "6782",
+    "name": "視陽",
+    "category": "生技",
+    "market_cap": 14584500000.0
+  },
+  {
+    "code": "1789",
+    "name": "神隆",
+    "category": "生技",
+    "market_cap": 14351916879.3
+  },
+  {
+    "code": "4104",
+    "name": "佳醫",
+    "category": "生技",
+    "market_cap": 13543620086.400002
+  },
+  {
+    "code": "1707",
+    "name": "葡萄王",
+    "category": "生技"
+  },
+  {
+    "code": "1720",
+    "name": "生達",
+    "category": "生技"
+  },
+  {
+    "code": "1731",
+    "name": "美吾華",
+    "category": "生技"
+  },
+  {
+    "code": "1733",
+    "name": "五鼎",
+    "category": "生技"
+  },
+  {
+    "code": "1734",
+    "name": "杏輝",
+    "category": "生技"
+  },
+  {
+    "code": "1752",
+    "name": "南光",
+    "category": "生技"
+  },
+  {
+    "code": "1760",
+    "name": "寶齡富錦",
+    "category": "生技"
+  },
+  {
+    "code": "1762",
+    "name": "中化生",
+    "category": "生技"
+  },
+  {
+    "code": "1783",
+    "name": "和康生",
+    "category": "生技"
+  },
+  {
+    "code": "1786",
+    "name": "科妍",
+    "category": "生技"
+  },
+  {
+    "code": "1402",
+    "name": "遠東新",
+    "category": "紡織",
+    "market_cap": 146668781219.8
+  },
+  {
+    "code": "1476",
+    "name": "儒鴻",
+    "category": "紡織",
+    "market_cap": 77920259524.0
+  },
+  {
+    "code": "1477",
+    "name": "聚陽",
+    "category": "紡織",
+    "market_cap": 47118499183.0
+  },
+  {
+    "code": "1409",
+    "name": "新纖",
+    "category": "紡織",
+    "market_cap": 38760902399.7
+  },
+  {
+    "code": "1434",
+    "name": "福懋",
+    "category": "紡織",
+    "market_cap": 29481631147.5
+  },
+  {
+    "code": "1440",
+    "name": "南紡",
+    "category": "紡織",
+    "market_cap": 21372924555.3
+  },
+  {
+    "code": "1419",
+    "name": "新紡",
+    "category": "紡織",
+    "market_cap": 19652703840.0
+  },
+  {
+    "code": "4441",
+    "name": "振大環球",
+    "category": "紡織",
+    "market_cap": 11692111627.0
+  },
+  {
+    "code": "1444",
+    "name": "力麗",
+    "category": "紡織",
+    "market_cap": 6660530944.710001
+  },
+  {
+    "code": "4438",
+    "name": "廣越",
+    "category": "紡織",
+    "market_cap": 6306455298.0
+  },
+  {
+    "code": "1410",
+    "name": "南染",
+    "category": "紡織"
+  },
+  {
+    "code": "1413",
+    "name": "宏洲",
+    "category": "紡織"
+  },
+  {
+    "code": "1414",
+    "name": "東和",
+    "category": "紡織"
+  },
+  {
+    "code": "1417",
+    "name": "嘉裕",
+    "category": "紡織"
+  },
+  {
+    "code": "1418",
+    "name": "東華",
+    "category": "紡織"
+  },
+  {
+    "code": "1423",
+    "name": "利華",
+    "category": "紡織"
+  },
+  {
+    "code": "6944",
+    "name": "兆聯實業",
+    "category": "綠能環保",
+    "market_cap": 68290585910.0
+  },
+  {
+    "code": "2072",
+    "name": "世紀風電",
+    "category": "綠能環保",
+    "market_cap": 24288000000.0
+  },
+  {
+    "code": "7786",
+    "name": "東方風能",
+    "category": "綠能環保",
+    "market_cap": 20586611448.0
+  },
+  {
+    "code": "9930",
+    "name": "中聯資源",
+    "category": "綠能環保",
+    "market_cap": 15160962448.0
+  },
+  {
+    "code": "6581",
+    "name": "鋼聯",
+    "category": "綠能環保",
+    "market_cap": 12184162126.5
+  },
+  {
+    "code": "7818",
+    "name": "溢泰實業",
+    "category": "綠能環保",
+    "market_cap": 10076760000.0
+  },
+  {
+    "code": "5292",
+    "name": "華懋",
+    "category": "綠能環保",
+    "market_cap": 9680629200.0
+  },
+  {
+    "code": "8341",
+    "name": "日友",
+    "category": "綠能環保",
+    "market_cap": 9633000000.0
+  },
+  {
+    "code": "6873",
+    "name": "泓德能源",
+    "category": "綠能環保",
+    "market_cap": 9571754542.899998
+  },
+  {
+    "code": "6869",
+    "name": "雲豹能源",
+    "category": "綠能環保",
+    "market_cap": 8931386656.8
+  },
+  {
+    "code": "3708",
+    "name": "上緯投控",
+    "category": "綠能環保"
+  },
+  {
+    "code": "6641",
+    "name": "基士德-KY",
+    "category": "綠能環保"
+  },
+  {
+    "code": "6887",
+    "name": "寶綠特-KY",
+    "category": "綠能環保"
+  },
+  {
+    "code": "6923",
+    "name": "中台",
+    "category": "綠能環保"
+  },
+  {
+    "code": "2603",
+    "name": "長榮",
+    "category": "航運",
+    "market_cap": 517445276044.0
+  },
+  {
+    "code": "2615",
+    "name": "萬海",
+    "category": "航運",
+    "market_cap": 322706823695.0
+  },
+  {
+    "code": "2618",
+    "name": "長榮航",
+    "category": "航運",
+    "market_cap": 223038351035.5
+  },
+  {
+    "code": "2609",
+    "name": "陽明",
+    "category": "航運",
+    "market_cap": 210224677054.0
+  },
+  {
+    "code": "2633",
+    "name": "台灣高鐵",
+    "category": "航運",
+    "market_cap": 146054204855.1
+  },
+  {
+    "code": "2610",
+    "name": "華航",
+    "category": "航運",
+    "market_cap": 122592521732.1
+  },
+  {
+    "code": "2637",
+    "name": "慧洋-KY",
+    "category": "航運",
+    "market_cap": 76506942897.5
+  },
+  {
+    "code": "2606",
+    "name": "裕民",
+    "category": "航運",
+    "market_cap": 64224234112.0
+  },
+  {
+    "code": "2645",
+    "name": "長榮航太",
+    "category": "航運",
+    "market_cap": 63864349021.0
+  },
+  {
+    "code": "2634",
+    "name": "漢翔",
+    "category": "航運",
+    "market_cap": 61221361565.0
+  },
+  {
+    "code": "2208",
+    "name": "台船",
+    "category": "航運"
+  },
+  {
+    "code": "2601",
+    "name": "益航",
+    "category": "航運"
+  },
+  {
+    "code": "2605",
+    "name": "新興",
+    "category": "航運"
+  },
+  {
+    "code": "2607",
+    "name": "榮運",
+    "category": "航運"
+  },
+  {
+    "code": "2608",
+    "name": "嘉里大榮",
+    "category": "航運"
+  },
+  {
+    "code": "2611",
+    "name": "志信",
+    "category": "航運"
+  },
+  {
+    "code": "2707",
+    "name": "晶華",
+    "category": "觀光餐旅",
+    "market_cap": 22550373126.0
+  },
+  {
+    "code": "2727",
+    "name": "王品",
+    "category": "觀光餐旅",
+    "market_cap": 18827404743.0
+  },
+  {
+    "code": "2704",
+    "name": "國賓",
+    "category": "觀光餐旅",
+    "market_cap": 16676665939.35
+  },
+  {
+    "code": "2723",
+    "name": "美食-KY",
+    "category": "觀光餐旅",
+    "market_cap": 13950000000.0
+  },
+  {
+    "code": "2731",
+    "name": "雄獅",
+    "category": "觀光餐旅",
+    "market_cap": 13152161199.0
+  },
+  {
+    "code": "2753",
+    "name": "八方雲集",
+    "category": "觀光餐旅",
+    "market_cap": 11862773688.0
+  },
+  {
+    "code": "9943",
+    "name": "好樂迪",
+    "category": "觀光餐旅",
+    "market_cap": 6333678406.0
+  },
+  {
+    "code": "2706",
+    "name": "第一店",
+    "category": "觀光餐旅",
+    "market_cap": 6049979986.6
+  },
+  {
+    "code": "2701",
+    "name": "萬企",
+    "category": "觀光餐旅",
+    "market_cap": 4634668731.4
+  },
+  {
+    "code": "2748",
+    "name": "雲品",
+    "category": "觀光餐旅",
+    "market_cap": 4088348301.0
+  },
+  {
+    "code": "2702",
+    "name": "華園",
+    "category": "觀光餐旅"
+  },
+  {
+    "code": "2705",
+    "name": "六福",
+    "category": "觀光餐旅"
+  },
+  {
+    "code": "2712",
+    "name": "遠雄來",
+    "category": "觀光餐旅"
+  },
+  {
+    "code": "2722",
+    "name": "夏都",
+    "category": "觀光餐旅"
+  },
+  {
+    "code": "2912",
+    "name": "統一超",
+    "category": "貿易百貨",
+    "market_cap": 223518784825.0
+  },
+  {
+    "code": "2915",
+    "name": "潤泰全",
+    "category": "貿易百貨",
+    "market_cap": 62504442495.2
+  },
+  {
+    "code": "2903",
+    "name": "遠百",
+    "category": "貿易百貨",
+    "market_cap": 30889304840.2
+  },
+  {
+    "code": "2905",
+    "name": "三商",
+    "category": "貿易百貨",
+    "market_cap": 20597395090.65
+  },
+  {
+    "code": "2908",
+    "name": "特力",
+    "category": "貿易百貨",
+    "market_cap": 11243020653.9
+  },
+  {
+    "code": "2913",
+    "name": "農林",
+    "category": "貿易百貨",
+    "market_cap": 8650500000.0
+  },
+  {
+    "code": "2910",
+    "name": "統領",
+    "category": "貿易百貨",
+    "market_cap": 4086889900.0
+  },
+  {
+    "code": "2906",
+    "name": "高林",
+    "category": "貿易百貨",
+    "market_cap": 2823074748.0
+  },
+  {
+    "code": "2945",
+    "name": "三商家購",
+    "category": "貿易百貨",
+    "market_cap": 2666250000.0
+  },
+  {
+    "code": "2901",
+    "name": "欣欣",
+    "category": "貿易百貨",
+    "market_cap": 1672691180.6999998
+  },
+  {
+    "code": "2911",
+    "name": "麗嬰房",
+    "category": "貿易百貨"
+  },
+  {
+    "code": "6214",
+    "name": "精誠",
+    "category": "資訊服務",
+    "market_cap": 51998425606.0
+  },
+  {
+    "code": "3029",
+    "name": "零壹",
+    "category": "資訊服務",
+    "market_cap": 19957122834.0
+  },
+  {
+    "code": "2480",
+    "name": "敦陽科",
+    "category": "資訊服務",
+    "market_cap": 17017646560.0
+  },
+  {
+    "code": "6183",
+    "name": "關貿",
+    "category": "資訊服務",
+    "market_cap": 13650000000.0
+  },
+  {
+    "code": "6112",
+    "name": "邁達特",
+    "category": "資訊服務",
+    "market_cap": 9361359599.2
+  },
+  {
+    "code": "2453",
+    "name": "凌群",
+    "category": "資訊服務",
+    "market_cap": 5530000000.0
+  },
+  {
+    "code": "4994",
+    "name": "傳奇",
+    "category": "資訊服務",
+    "market_cap": 5503183860.0
+  },
+  {
+    "code": "2427",
+    "name": "三商電",
+    "category": "資訊服務",
+    "market_cap": 4682689901.45
+  },
+  {
+    "code": "5203",
+    "name": "訊連",
+    "category": "資訊服務",
+    "market_cap": 4423993860.0
+  },
+  {
+    "code": "2468",
+    "name": "華經",
+    "category": "資訊服務",
+    "market_cap": 3053808518.85
+  },
+  {
+    "code": "2471",
+    "name": "資通",
+    "category": "資訊服務"
+  },
+  {
+    "code": "1907",
+    "name": "永豐餘",
+    "category": "造紙",
+    "market_cap": 47901717630.75
+  },
+  {
+    "code": "1904",
+    "name": "正隆",
+    "category": "造紙",
+    "market_cap": 27041898336.799995
+  },
+  {
+    "code": "1905",
+    "name": "華紙",
+    "category": "造紙",
+    "market_cap": 14447142639.6
+  },
+  {
+    "code": "1909",
+    "name": "榮成",
+    "category": "造紙",
+    "market_cap": 13476010129.05
+  },
+  {
+    "code": "1903",
+    "name": "士紙",
+    "category": "造紙",
+    "market_cap": 12208836730.95
+  },
+  {
+    "code": "6790",
+    "name": "永豐實",
+    "category": "造紙",
+    "market_cap": 10057407640.65
+  },
+  {
+    "code": "1906",
+    "name": "寶隆",
+    "category": "造紙",
+    "market_cap": 1630800000.0000002
+  },
+  {
+    "code": "9904",
+    "name": "寶成",
+    "category": "運動休閒",
+    "market_cap": 72196286718.5
+  },
+  {
+    "code": "9910",
+    "name": "豐泰",
+    "category": "運動休閒",
+    "market_cap": 66655091092.5
+  },
+  {
+    "code": "1736",
+    "name": "喬山",
+    "category": "運動休閒",
+    "market_cap": 38076024433.5
+  },
+  {
+    "code": "6670",
+    "name": "復盛應用",
+    "category": "運動休閒",
+    "market_cap": 37634482710.0
+  },
+  {
+    "code": "6890",
+    "name": "來億-KY",
+    "category": "運動休閒",
+    "market_cap": 36543310900.0
+  },
+  {
+    "code": "9921",
+    "name": "巨大",
+    "category": "運動休閒",
+    "market_cap": 35560331326.5
+  },
+  {
+    "code": "9914",
+    "name": "美利達",
+    "category": "運動休閒",
+    "market_cap": 20301000020.000004
+  },
+  {
+    "code": "4536",
+    "name": "拓凱",
+    "category": "運動休閒",
+    "market_cap": 14894480000.0
+  },
+  {
+    "code": "8478",
+    "name": "東哥遊艇",
+    "category": "運動休閒",
+    "market_cap": 13344063192.0
+  },
+  {
+    "code": "9802",
+    "name": "鈺齊-KY",
+    "category": "運動休閒",
+    "market_cap": 12803169570.1
+  },
+  {
+    "code": "1432",
+    "name": "大魯閣",
+    "category": "運動休閒"
+  },
+  {
+    "code": "1598",
+    "name": "岱宇",
+    "category": "運動休閒"
+  },
+  {
+    "code": "2762",
+    "name": "世界健身-KY",
+    "category": "運動休閒"
+  },
+  {
+    "code": "5306",
+    "name": "桂盟",
+    "category": "運動休閒"
+  },
+  {
+    "code": "6768",
+    "name": "志強-KY",
+    "category": "運動休閒"
+  },
+  {
+    "code": "6965",
+    "name": "中傑-KY",
+    "category": "運動休閒"
+  },
+  {
+    "code": "2881",
+    "name": "富邦金",
+    "category": "金融",
+    "market_cap": 2387925307656.0
+  },
+  {
+    "code": "2882",
+    "name": "國泰金",
+    "category": "金融",
+    "market_cap": 1822782389400.0
+  },
+  {
+    "code": "2891",
+    "name": "中信金",
+    "category": "金融",
+    "market_cap": 1428455334664.8
+  },
+  {
+    "code": "2887",
+    "name": "台新新光金",
+    "category": "金融",
+    "market_cap": 1314513084375.6
+  },
+  {
+    "code": "2885",
+    "name": "元大金",
+    "category": "金融",
+    "market_cap": 962189078513.6
+  },
+  {
+    "code": "2884",
+    "name": "玉山金",
+    "category": "金融",
+    "market_cap": 823257061377.9501
+  },
+  {
+    "code": "2886",
+    "name": "兆豐金",
+    "category": "金融",
+    "market_cap": 755018954553.8
+  },
+  {
+    "code": "2883",
+    "name": "凱基金",
+    "category": "金融",
+    "market_cap": 726496952338.35
+  },
+  {
+    "code": "2890",
+    "name": "永豐金",
+    "category": "金融",
+    "market_cap": 670085243061.3
+  },
+  {
+    "code": "2880",
+    "name": "華南金",
+    "category": "金融",
+    "market_cap": 665557979891.65
+  },
+  {
+    "code": "2801",
+    "name": "彰銀",
+    "category": "金融"
+  },
+  {
+    "code": "2812",
+    "name": "台中銀",
+    "category": "金融"
+  },
+  {
+    "code": "2816",
+    "name": "旺旺保",
+    "category": "金融"
+  },
+  {
+    "code": "2820",
+    "name": "華票",
+    "category": "金融"
+  },
+  {
+    "code": "2832",
+    "name": "台產",
+    "category": "金融"
+  },
+  {
+    "code": "2834",
+    "name": "臺企銀",
+    "category": "金融"
+  },
+  {
+    "code": "2836",
+    "name": "高雄銀",
+    "category": "金融"
+  },
+  {
+    "code": "2838",
+    "name": "聯邦銀",
+    "category": "金融"
+  },
+  {
+    "code": "2845",
+    "name": "遠東銀",
+    "category": "金融"
+  },
+  {
+    "code": "2849",
+    "name": "安泰銀",
+    "category": "金融"
+  },
+  {
+    "code": "2002",
+    "name": "中鋼",
+    "category": "鋼鐵",
+    "market_cap": 294168855775.4
+  },
+  {
+    "code": "2027",
+    "name": "大成鋼",
+    "category": "鋼鐵",
+    "market_cap": 120297331628.25
+  },
+  {
+    "code": "2006",
+    "name": "東和鋼鐵",
+    "category": "鋼鐵",
+    "market_cap": 59220340639.8
+  },
+  {
+    "code": "2015",
+    "name": "豐興",
+    "category": "鋼鐵",
+    "market_cap": 37047883308.8
+  },
+  {
+    "code": "2211",
+    "name": "長榮鋼",
+    "category": "鋼鐵",
+    "market_cap": 33409026186.3
+  },
+  {
+    "code": "2023",
+    "name": "燁輝",
+    "category": "鋼鐵",
+    "market_cap": 24950990931.8
+  },
+  {
+    "code": "2014",
+    "name": "中鴻",
+    "category": "鋼鐵",
+    "market_cap": 23471151692.100002
+  },
+  {
+    "code": "9958",
+    "name": "世紀鋼",
+    "category": "鋼鐵",
+    "market_cap": 22023182518.0
+  },
+  {
+    "code": "5007",
+    "name": "三星",
+    "category": "鋼鐵",
+    "market_cap": 16398672562.4
+  },
+  {
+    "code": "2010",
+    "name": "春源",
+    "category": "鋼鐵",
+    "market_cap": 13989356424.0
+  },
+  {
+    "code": "2007",
+    "name": "燁興",
+    "category": "鋼鐵"
+  },
+  {
+    "code": "2008",
+    "name": "高興昌",
+    "category": "鋼鐵"
+  },
+  {
+    "code": "2009",
+    "name": "第一銅",
+    "category": "鋼鐵"
+  },
+  {
+    "code": "2012",
+    "name": "春雨",
+    "category": "鋼鐵"
+  },
+  {
+    "code": "2013",
+    "name": "中鋼構",
+    "category": "鋼鐵"
+  },
+  {
+    "code": "1605",
+    "name": "華新",
+    "category": "電器電纜",
+    "market_cap": 162851485839.0
+  },
+  {
+    "code": "1609",
+    "name": "大亞",
+    "category": "電器電纜",
+    "market_cap": 29290270511.2
+  },
+  {
+    "code": "1608",
+    "name": "華榮",
+    "category": "電器電纜",
+    "market_cap": 22779846216.0
+  },
+  {
+    "code": "1623",
+    "name": "大東電",
+    "category": "電器電纜",
+    "market_cap": 13398000000.0
+  },
+  {
+    "code": "1612",
+    "name": "宏泰",
+    "category": "電器電纜",
+    "market_cap": 11015390195.55
+  },
+  {
+    "code": "1604",
+    "name": "聲寶",
+    "category": "電器電纜",
+    "market_cap": 8971070000.0
+  },
+  {
+    "code": "1615",
+    "name": "大山",
+    "category": "電器電纜",
+    "market_cap": 8541104577.0
+  },
+  {
+    "code": "1614",
+    "name": "三洋電",
+    "category": "電器電纜",
+    "market_cap": 8329059915.7
+  },
+  {
+    "code": "1618",
+    "name": "合機",
+    "category": "電器電纜",
+    "market_cap": 7428266846.85
+  },
+  {
+    "code": "1603",
+    "name": "華電",
+    "category": "電器電纜",
+    "market_cap": 5721886800.0
+  },
+  {
+    "code": "1611",
+    "name": "中電",
+    "category": "電器電纜"
+  },
+  {
+    "code": "1616",
+    "name": "億泰",
+    "category": "電器電纜"
+  },
+  {
+    "code": "3036",
+    "name": "文曄",
+    "category": "電子通路",
+    "market_cap": 242677475891.0
+  },
+  {
+    "code": "3702",
+    "name": "大聯大",
+    "category": "電子通路",
+    "market_cap": 178463794094.0
+  },
+  {
+    "code": "2347",
+    "name": "聯強",
+    "category": "電子通路",
+    "market_cap": 147946896061.6
+  },
+  {
+    "code": "5434",
+    "name": "崇越",
+    "category": "電子通路",
+    "market_cap": 104182286871.0
+  },
+  {
+    "code": "8112",
+    "name": "至上",
+    "category": "電子通路",
+    "market_cap": 49111677285.0
+  },
+  {
+    "code": "3010",
+    "name": "華立",
+    "category": "電子通路",
+    "market_cap": 31781010082.5
+  },
+  {
+    "code": "3033",
+    "name": "威健",
+    "category": "電子通路",
+    "market_cap": 21437217092.0
+  },
+  {
+    "code": "3055",
+    "name": "蔚華科",
+    "category": "電子通路",
+    "market_cap": 18855886552.0
+  },
+  {
+    "code": "3028",
+    "name": "增你強",
+    "category": "電子通路",
+    "market_cap": 14519161011.6
+  },
+  {
+    "code": "3048",
+    "name": "益登",
+    "category": "電子通路",
+    "market_cap": 13599421617.6
+  },
+  {
+    "code": "2414",
+    "name": "精技",
+    "category": "電子通路"
+  },
+  {
+    "code": "2430",
+    "name": "燦坤",
+    "category": "電子通路"
+  },
+  {
+    "code": "3054",
+    "name": "立萬利",
+    "category": "電子通路"
+  },
+  {
+    "code": "2308",
+    "name": "台達電",
+    "category": "電子零組件",
+    "market_cap": 4441799092590.0
+  },
+  {
+    "code": "2383",
+    "name": "台光電",
+    "category": "電子零組件",
+    "market_cap": 1822062864690.0
+  },
+  {
+    "code": "3037",
+    "name": "欣興",
+    "category": "電子零組件",
+    "market_cap": 1577281223756.0
+  },
+  {
+    "code": "2059",
+    "name": "川湖",
+    "category": "電子零組件",
+    "market_cap": 1147853232240.0
+  },
+  {
+    "code": "3653",
+    "name": "健策",
+    "category": "電子零組件",
+    "market_cap": 771348320720.0
+  },
+  {
+    "code": "8046",
+    "name": "南電",
+    "category": "電子零組件",
+    "market_cap": 714012863135.0
+  },
+  {
+    "code": "4958",
+    "name": "臻鼎-KY",
+    "category": "電子零組件",
+    "market_cap": 551503134115.5
+  },
+  {
+    "code": "2368",
+    "name": "金像電",
+    "category": "電子零組件",
+    "market_cap": 518749509216.0
+  },
+  {
+    "code": "2313",
+    "name": "華通",
+    "category": "電子零組件",
+    "market_cap": 277609632525.0
+  },
+  {
+    "code": "2327",
+    "name": "國巨*",
+    "category": "電子零組件",
+    "market_cap": 275869912192.0
+  },
+  {
+    "code": "1471",
+    "name": "首利",
+    "category": "電子零組件"
+  },
+  {
+    "code": "1582",
+    "name": "信錦",
+    "category": "電子零組件"
+  },
+  {
+    "code": "2316",
+    "name": "楠梓電",
+    "category": "電子零組件"
+  },
+  {
+    "code": "2328",
+    "name": "廣宇",
+    "category": "電子零組件"
+  },
+  {
+    "code": "2355",
+    "name": "敬鵬",
+    "category": "電子零組件"
+  },
+  {
+    "code": "2367",
+    "name": "燿華",
+    "category": "電子零組件"
+  },
+  {
+    "code": "1590",
+    "name": "亞德客-KY",
+    "category": "電機機械",
+    "market_cap": 247999997520.0
+  },
+  {
+    "code": "1519",
+    "name": "華城",
+    "category": "電機機械",
+    "market_cap": 245313063874.0
+  },
+  {
+    "code": "1504",
+    "name": "東元",
+    "category": "電機機械",
+    "market_cap": 166826136016.8
+  },
+  {
+    "code": "7750",
+    "name": "新代",
+    "category": "電機機械",
+    "market_cap": 136142485000.0
+  },
+  {
+    "code": "8996",
+    "name": "高力",
+    "category": "電機機械",
+    "market_cap": 121551998100.0
+  },
+  {
+    "code": "2049",
+    "name": "上銀",
+    "category": "電機機械",
+    "market_cap": 117282127560.0
+  },
+  {
+    "code": "1560",
+    "name": "中砂",
+    "category": "電機機械",
+    "market_cap": 111364486896.0
+  },
+  {
+    "code": "1503",
+    "name": "士電",
+    "category": "電機機械",
+    "market_cap": 101850069596.5
+  },
+  {
+    "code": "1513",
+    "name": "中興電",
+    "category": "電機機械",
+    "market_cap": 81755783687.5
+  },
+  {
+    "code": "3167",
+    "name": "大量",
+    "category": "電機機械",
+    "market_cap": 73759116584.0
+  },
+  {
+    "code": "1506",
+    "name": "正道",
+    "category": "電機機械"
+  },
+  {
+    "code": "1514",
+    "name": "亞力",
+    "category": "電機機械"
+  },
+  {
+    "code": "1515",
+    "name": "力山",
+    "category": "電機機械"
+  },
+  {
+    "code": "1517",
+    "name": "利奇",
+    "category": "電機機械"
+  },
+  {
+    "code": "1526",
+    "name": "日馳",
+    "category": "電機機械"
+  },
+  {
+    "code": "1527",
+    "name": "鑽全",
+    "category": "電機機械"
+  },
+  {
+    "code": "1216",
+    "name": "統一",
+    "category": "食品",
+    "market_cap": 423310148864.5
+  },
+  {
+    "code": "1229",
+    "name": "聯華",
+    "category": "食品",
+    "market_cap": 73366789234.05
+  },
+  {
+    "code": "1210",
+    "name": "大成",
+    "category": "食品",
+    "market_cap": 46080511933.0
+  },
+  {
+    "code": "1215",
+    "name": "卜蜂",
+    "category": "食品",
+    "market_cap": 31247750388.0
+  },
+  {
+    "code": "1231",
+    "name": "聯華食",
+    "category": "食品",
+    "market_cap": 26034183814.6
+  },
+  {
+    "code": "1227",
+    "name": "佳格",
+    "category": "食品",
+    "market_cap": 25668263027.55
+  },
+  {
+    "code": "1232",
+    "name": "大統益",
+    "category": "食品",
+    "market_cap": 24636136910.0
+  },
+  {
+    "code": "1234",
+    "name": "黑松",
+    "category": "食品",
+    "market_cap": 13301933211.4
+  },
+  {
+    "code": "1203",
+    "name": "味王",
+    "category": "食品",
+    "market_cap": 10140000000.0
+  },
+  {
+    "code": "1702",
+    "name": "南僑",
+    "category": "食品",
+    "market_cap": 9500494672.599998
+  },
+  {
+    "code": "1201",
+    "name": "味全",
+    "category": "食品"
+  },
+  {
+    "code": "1213",
+    "name": "大飲",
+    "category": "食品"
+  },
+  {
+    "code": "1217",
+    "name": "愛之味",
+    "category": "食品"
+  },
+  {
+    "code": "1218",
+    "name": "泰山",
+    "category": "食品"
+  },
+  {
+    "code": "1219",
+    "name": "福壽",
+    "category": "食品"
+  },
+  {
+    "code": "1220",
+    "name": "台榮",
+    "category": "食品"
+  }
+]

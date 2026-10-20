@@ -1,0 +1,14 @@
+# 訓練與評估管線的相依套件（爬蟲另見專案根目錄的 tw_stock_crawler.py）
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+scipy>=1.10
+
+# 選用：更強的梯度提升基礎模型（安裝後把名稱加進 config.ModelConfig.base_models）
+# xgboost>=2.0
+# lightgbm>=4.0
+
+# 選用：文本特徵（E1／E3 需要）
+# ckip-transformers>=0.3.4   # 中研院繁中斷詞，首次執行會下載模型
+# torch>=2.0                 # ckip-transformers 的相依
+# jieba>=0.42                # CKIP 不可用時的退回方案

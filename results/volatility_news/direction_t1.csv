@@ -1,0 +1,13 @@
+﻿source,feature,n_big_days,spearman_vs_r_t,p
+intl,t-1 tone,142,-0.045104,0.59403
+intl,t-1 tone_dev,142,0.0059704,0.94378
+intl,t-1 neg_share,142,0.0054423,0.94875
+cnyes,t-1 tone,114,0.062979,0.50562
+cnyes,t-1 tone_dev,113,0.086217,0.36388
+cnyes,t-1 neg_share,114,-0.019272,0.83873
+yahoo,t-1 tone,19,0.12774,0.60227
+yahoo,t-1 tone_dev,19,0.16842,0.49067
+yahoo,t-1 neg_share,19,-0.1239,0.61331
+ptt,t-1 tone,85,-0.18812,0.084685
+ptt,t-1 tone_dev,85,-0.096267,0.38079
+ptt,t-1 neg_share,85,0.17711,0.1049

@@ -1,0 +1,18 @@
+# 開發環境：Python 3.12
+pandas>=2.2
+numpy>=1.26
+scikit-learn>=1.4
+scipy>=1.11
+matplotlib>=3.8
+requests>=2.31
+tenacity>=8.0
+jieba>=0.42
+
+# 選用：CKIP 斷詞（沒裝會自動退回 jieba）
+# ckip-transformers>=0.3
+# 選用：DAViS 消融實驗的梯度提升模型
+# lightgbm
+# xgboost
+# 選用：tw_text_crawler.py 需要瀏覽器抓取時
+# selenium
+# webdriver-manager

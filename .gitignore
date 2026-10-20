@@ -1,0 +1,51 @@
+# ---- 環境 ----
+__pycache__/
+*.pyc
+.vscode/
+.ipynb_checkpoints/
+
+# ---- 原始資料（太大，且新聞、PTT 全文有版權疑慮；用爬蟲重建，見 README）----
+data/*
+!data/industry_stock_map.json
+!data/price_fixes.csv
+NEW_pttcc*/
+NEW_pttcc*.zip
+*.zip
+
+# ---- 結果：只放結論文件、摘要表與小型紀錄 ----
+# walk-forward 逐檔輸出（每個目錄上千個檔），只留報告與設定
+results/long*/*
+results/full*/*
+results/ab_*/*
+results/train_*/*
+results/ablation*/*
+results/2026*/*
+!results/*/report.md
+!results/*/config.json
+!results/*/*summary*.csv
+
+# 修正前的備份與對照中間檔
+results/pre_audit/
+results/pre2011fix_daily/
+results/nextday_pre2011fix/
+results/quarterly_pre2011fix/
+results/data_fix_2011/ab/old/
+results/data_fix_2011/turnover_rank_old.csv
+
+# 逐筆預測、交易明細等大檔
+results/**/pred*.csv
+results/**/trades_*.csv
+results/**/parts*.csv
+results/**/events.csv
+results/**/scored.csv
+
+# 其他超過 1MB 的檔（由整理時掃描產生）
+*.pkl
+results/long1*.log
+results/ab_*.log
+results/run_all.log
+results/**/trades.csv
+results/news_direction/panel.csv
+results/volatility_news/daily_panel.csv
+results/portfolio_long11/excess_returns_*.csv
+results/pf_long11_purged/excess_returns_*.csv
