@@ -185,11 +185,16 @@ t+1 日收盤：以收盤價評價淨值
 
 ```python
 class Strategy(Protocol):
-    def generate(self, date: pd.Timestamp, view: DataView) -> dict[str, float]:
-        """回傳 {代號: 目標權重}，未列出的持股視為目標 0。"""
+    def generate(self, date: pd.Timestamp, view: DataView) -> dict[str, float] | None:
+        """回傳 {代號: 目標權重}，未列出的持股視為目標 0；回傳 None 表示不調整。"""
 ```
 
-沙盒自行把目標權重換算成買賣股數。第二階段接 attention、LSTM 或 LLM 時，
+`None` 和 `{}` 不同：`{}` 是全部賣光，`None` 是維持現有持股。買進持有這類策略
+如果每天都回傳同一組權重，價格一動、取整後的目標股數就會變，每天都會產生零碎的
+買賣；所以不想調整的日子要回傳 `None`。
+
+沙盒自行把目標權重換算成買賣股數。目標金額以成交當下的淨值計算：開盤成交時
+持股用當日開盤價評價，沒有開盤價的用前一日收盤價。第二階段接 attention、LSTM 或 LLM 時，
 都只是另一個 `Strategy`。
 
 ## 7. 驗證（第一階段的完成標準）
