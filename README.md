@@ -67,6 +67,8 @@ White Reality Check／Hansen SPA 校正資料窺探、事先固定變體再一�
 ├─ survivorship_fix.py、delisted_*.py、adjust_delisted.py   生存者偏誤（納入下市股）
 ├─ fill_2011_gap.py、corp_actions.py、dividend_check.py     資料修補、除權息、現金股利
 ├─ tw_*_crawler.py、intl_news_crawler.py、daily_update.py    資料爬蟲與每日更新
+├─ sandbox/                 模擬交易沙盒：虛擬資金、台股撮合、成本、風控、績效報表（見 sandbox/README.md）
+├─ tests/sandbox/           沙盒的測試（合成資料，不需 data/）
 ├─ tool/                    稽核與對照工具（價格跳動掃描、前視 A/B、2011 修正 A/B）
 └─ results/                 結論文件、各分析的摘要表與執行紀錄
 ```
@@ -106,6 +108,9 @@ pip install -r requirements.txt
 `quarterly_factors.py`／`quarterly_verify.py`／`quarterly_alpha.py`（季頻）→
 `highvol_controls.py`／`highvol_diagnose.py`／`strategy_spec.py`（長期版與趨勢過濾）。
 `tool/rerun_audit.sh` 是資料稽核後重跑所有存活策略的完整腳本。
+
+模擬交易沙盒（`sandbox/`）用同一份 `data/`，執行與測試方式見
+[`sandbox/README.md`](sandbox/README.md)。測試另需 pytest。
 
 ## 限制
 
