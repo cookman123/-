@@ -49,3 +49,11 @@ results/news_direction/panel.csv
 results/volatility_news/daily_panel.csv
 results/portfolio_long11/excess_returns_*.csv
 results/pf_long11_purged/excess_returns_*.csv
+
+# ---- 模擬交易沙盒 ----
+.venv/
+.pytest_cache/
+results/sandbox/*/*
+!results/sandbox/*/report.md
+!results/sandbox/*/config.json
+!results/sandbox/*/*summary*.csv

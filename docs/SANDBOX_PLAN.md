@@ -35,7 +35,7 @@ sandbox/
   report.py      # 績效指標與報表
   run.py         # 命令列入口：python -m sandbox.run --help
 tests/sandbox/
-  fixtures/      # 小型合成價格與公司行動檔（測試不依賴 data/）
+  conftest.py    # 在暫存資料夾產生小型合成 data/（測試不依賴本機資料）
 ```
 
 - `sandbox/` **不 import 根目錄腳本**（`davis_tw_train.py` 等），也不 import `davis_tw/`。
@@ -50,7 +50,7 @@ tests/sandbox/
   `report.md`、`config.json` 和摘要 CSV，帳冊與逐日明細不上傳。
 - 配合本 repo 的慣例：程式註解與文件用中文；路徑一律用 `pathlib`；CSV 讀寫用
   `utf-8-sig`；命令列入口照其他腳本的寫法，重設 stdout 編碼，讓 Windows 主控台不出亂碼。
-- 原始資料（約 13 GB）不在 repo 裡。所有單元測試、作弊測試都只用 `fixtures/`，
+- 原始資料（約 13 GB）不在 repo 裡。所有單元測試、作弊測試都只用 `conftest.py` 產生的合成資料，
   在 CI 或沒有資料的機器上也能跑。0050 對帳等真實資料測試，沒有資料就跳過。
 
 ## 2. 資料
@@ -138,7 +138,9 @@ t+1 日收盤：以收盤價評價淨值
 | 處置股期間 | 第一版照常成交但標記 `disposition`，報表另計 |
 
 「鎖死」的近似判準：`open == high == 漲停價`（跌停反之）。漲跌停價由前日收盤
-×1.10／0.90 並依升降單位取整。這是日資料下的近似，盤中是否打開無法得知。
+（除權息日改用參考價）乘以漲跌幅上下限，並依升降單位取整。漲跌幅在 2015-06-01
+之前是 ±7%，之後是 ±10%；本 repo 的資料從 2010 年起，兩段都會用到。這是日資料
+下的近似，盤中是否打開無法得知。
 
 ### 4.3 成本
 | 項目 | 預設值 | 說明 |
@@ -222,9 +224,9 @@ class Strategy(Protocol):
      我去查。
 5. **Python 環境**：本 repo 指定 Python 3.12 加上 `requirements.txt`。本機有
    `~/.local/bin/python3.12`（之前在它上面建 venv，`ensurepip` 失敗）、Homebrew 的
-   `python3.12` 和 uv。建議用 `uv venv --python 3.12` 建 `.venv`，再用
-   `uv pip install -r requirements.txt pytest` 安裝。`.venv/` 要加進 `.gitignore`。
-   這一項等你同意再做。
+   `python3.12` 和 uv。已用 `uv venv --python 3.12` 建好 `.venv`（2026-10-22），
+   沙盒只裝了 pandas、numpy、pytest；`requirements.txt` 的其他套件（scikit-learn、
+   jieba 等）是研究腳本用的，跑 `load_price` 對照測試時才需要。
 
 ## 9. 里程碑
 
