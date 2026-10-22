@@ -26,7 +26,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .broker import tick_size
+from .broker import limit_series, tick_size
 
 logger = logging.getLogger(__name__)
 
@@ -254,13 +254,55 @@ def audit(data: RepoData, codes: dict[str, str] | None = None) -> pd.DataFrame:
 # ============================== 面板與資料視圖 ==============================
 
 
-class Panel:
-    """原始價寬表：每個欄位一張 日期 × 代號 的表，索引為交易日曆。"""
+def corporate_actions(data: RepoData, codes) -> pd.DataFrame:
+    """
+    每股為單位的公司行動表（§4.4）：date, code, cash, stock, reduce, ref
 
-    def __init__(self, fields: dict[str, pd.DataFrame], kinds: dict[str, str]):
+        cash    每股現金股利（元）。「息」類事件的明細沒抓，cash 缺值時用 前日收盤 − 參考價
+        stock   每股配發的股數（stock_per_1000 / 1000）
+        reduce  減資後每股換成的股數（prev_close / ref），沒有減資為 NaN
+        ref     參考價：折算零股與當日漲跌停的基準
+    """
+    codes = set(codes)
+    ex = data.exright()
+    ex = ex[ex["code"].isin(codes)]
+    rows = []
+    for _, e in ex.iterrows():
+        cash = e.get("cash")
+        if not (pd.notna(cash) and cash > 0):
+            cash = (e["prev_close"] - e["ref"]
+                    if e.get("kind") == "息" and e["prev_close"] > 0 and e["ref"] > 0 else 0.0)
+        stock = e.get("stock_per_1000")
+        rows.append({"date": e["date"], "code": e["code"], "cash": float(cash),
+                     "stock": float(stock) / 1000 if pd.notna(stock) else 0.0,
+                     "reduce": np.nan, "ref": e["ref"] if e["ref"] > 0 else np.nan})
+    rd = data.reduction()
+    rd = rd[rd["code"].isin(codes) & (rd["prev_close"] > 0) & (rd["ref"] > 0)]
+    for _, r in rd.iterrows():
+        rows.append({"date": r["date"], "code": r["code"], "cash": 0.0, "stock": 0.0,
+                     "reduce": r["prev_close"] / r["ref"], "ref": r["ref"]})
+    cols = ["date", "code", "cash", "stock", "reduce", "ref"]
+    return pd.DataFrame(rows, columns=cols).sort_values(["date", "code"]).reset_index(drop=True)
+
+
+class Panel:
+    """
+    原始價寬表：每個欄位一張 日期 × 代號 的表，索引為交易日曆。
+
+    除了 OHLCV，另有 limit_up、limit_down（當日漲跌停價）。actions 是期間內的公司行動。
+    """
+
+    def __init__(self, fields: dict[str, pd.DataFrame], kinds: dict[str, str],
+                 actions: pd.DataFrame | None = None):
         self.fields = fields
         self.kinds = kinds
         self.calendar = fields["close"].index
+        self.actions = actions if actions is not None else pd.DataFrame(
+            columns=["date", "code", "cash", "stock", "reduce", "ref"])
+        close = fields["close"]
+        # 下市股的最後交易日；存活股不列（資料結束不代表下市）
+        self.last_day = {c: close[c].last_valid_index() for c in close
+                         if kinds.get(c) == "delisted" and close[c].notna().any()}
 
     @classmethod
     def build(cls, data: RepoData, start: str, end: str,
@@ -269,7 +311,9 @@ class Panel:
         cal = cal[(cal >= pd.Timestamp(start)) & (cal <= pd.Timestamp(end))]
         allk = data.codes()
         kinds = {c: allk[c] for c in (codes if codes is not None else allk)}
-        cols: dict[str, dict[str, pd.Series]] = {f: {} for f in FIELDS}
+        acts = corporate_actions(data, kinds)
+        names = FIELDS + ("limit_up", "limit_down")
+        cols: dict[str, dict[str, pd.Series]] = {f: {} for f in names}
         for code, kind in kinds.items():
             px = data.load(code, kind)
             if px is None:
@@ -277,11 +321,19 @@ class Panel:
             off = px.index[(px.index >= cal.min()) & (px.index <= cal.max())].difference(cal)
             if len(off):
                 logger.warning("[%s] %d 筆價格不在交易日曆上，已略過", code, len(off))
+            # 漲跌停基準：前一個有成交的交易日收盤；除權息、減資當日改用參考價
+            base = px["close"].shift(1)
+            ref = acts[acts["code"] == code].dropna(subset=["ref"]).groupby("date")["ref"].last()
+            ref = ref[ref.index.isin(base.index)]
+            base.loc[ref.index] = ref
+            px["limit_up"], px["limit_down"] = limit_series(base, etf=kind == "etf")
             px = px.reindex(cal)
-            for f in FIELDS:
+            for f in names:
                 cols[f][code] = px[f]
-        fields = {f: pd.DataFrame(cols[f], index=cal) for f in FIELDS}
-        return cls(fields, {c: k for c, k in kinds.items() if c in fields["close"]})
+        fields = {f: pd.DataFrame(cols[f], index=cal) for f in names}
+        kinds = {c: k for c, k in kinds.items() if c in fields["close"]}
+        acts = acts[acts["code"].isin(kinds) & acts["date"].isin(cal)].reset_index(drop=True)
+        return cls(fields, kinds, acts)
 
 
 class DataView:
@@ -311,7 +363,7 @@ class DataView:
     def field(self, name: str, start=None, end=None) -> pd.DataFrame:
         """日期 × 代號 的寬表，期間預設到 asof 為止。"""
         if name not in self._panel.fields:
-            raise KeyError(f"沒有欄位 {name}；可用：{', '.join(FIELDS)}")
+            raise KeyError(f"沒有欄位 {name}；可用：{', '.join(self._panel.fields)}")
         end = self._asof if end is None else pd.Timestamp(end)
         if end > self._asof:
             raise LookaheadError(f"查詢到 {end.date()}，但資料視圖只到 {self._asof.date()}")

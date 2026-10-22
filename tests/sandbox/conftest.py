@@ -11,7 +11,8 @@
           Yahoo 漏調整的錯價，靠 price_fixes.csv 修正
     2000  存活股，2020-02-03 才上市
     9999  下市股（證交所原始價），2020-02-14 為最後交易日
-    0050  ETF，沒有公司行動
+    0050  ETF，2020-03-16 除息每股 2 元
+    3008  存活股，2020-03-10 開盤漲停鎖死、2020-03-11 開盤跌停鎖死
 """
 from __future__ import annotations
 
@@ -21,6 +22,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from sandbox.broker import limit_prices
+
 CAL = pd.bdate_range("2019-12-02", "2020-03-31")
 DIV_DAY = pd.Timestamp("2020-02-03")
 RED_DAY = pd.Timestamp("2020-03-02")
@@ -28,6 +31,10 @@ FIX_DAY = pd.Timestamp("2020-01-15")
 FLAT_DAY = pd.Timestamp("2020-01-08")
 LIST_DAY = pd.Timestamp("2020-02-03")
 DELIST_DAY = pd.Timestamp("2020-02-14")
+CASH_DAY = pd.Timestamp("2020-03-16")
+CASH_0050 = 2.0
+LOCK_UP = pd.Timestamp("2020-03-10")
+LOCK_DOWN = pd.Timestamp("2020-03-11")
 
 
 def _walk(dates, start, seed) -> pd.DataFrame:
@@ -73,13 +80,32 @@ def raw_prices() -> dict[str, pd.DataFrame]:
     p1101 = _with_event(_walk(CAL, 100, 1), DIV_DAY, 1 / 1.1)
     p2330 = _walk(CAL, 50, 2)
     p2330 = _with_event(p2330, RED_DAY, 100 / p2330.loc[p2330.index < RED_DAY, "close"].iloc[-1])
+    p0050 = _walk(CAL, 95, 5)
+    prev = p0050.loc[p0050.index < CASH_DAY, "close"].iloc[-1]
+    p0050 = _with_event(p0050, CASH_DAY, (prev - CASH_0050) / prev)
     return {
         "1101": p1101,
         "2330": p2330,
         "2000": _walk(CAL[CAL >= LIST_DAY], 30, 3),
         "9999": _walk(CAL[CAL <= DELIST_DAY], 8, 4),
-        "0050": _walk(CAL, 95, 5),
+        "0050": p0050,
+        "3008": _locked_path(),
     }
+
+
+def _locked_path() -> pd.DataFrame:
+    """3008：LOCK_UP 當天開盤即漲停且整天鎖住，隔天開盤即跌停且整天鎖住。"""
+    px = _walk(CAL, 200, 6)
+    c = px.loc[px.index < LOCK_UP, "close"].iloc[-1]
+    up = limit_prices(c, LOCK_UP)[0]
+    down = limit_prices(up, LOCK_DOWN)[1]
+    px.loc[LOCK_UP] = [up, up, round(up * 0.98, 2), up, px.at[LOCK_UP, "volume"]]
+    px.loc[LOCK_DOWN] = [down, round(down * 1.02, 2), down, down, px.at[LOCK_DOWN, "volume"]]
+    after = px.index > LOCK_DOWN
+    scale = down / px.loc[after, "close"].iloc[0]
+    px.loc[after, ["open", "high", "low", "close"]] = (px.loc[after, ["open", "high", "low", "close"]]
+                                                       * scale).round(2)
+    return px
 
 
 @pytest.fixture(scope="session")
@@ -106,6 +132,7 @@ def data_dir(tmp_path_factory, raw_prices) -> Path:
     _write(y2330, d / "stocks" / "2330" / "price" / "yahoo_2330_2020.csv")
 
     _write(raw["2000"], d / "stocks" / "2000" / "price" / "yahoo_2000_2020.csv")
+    _write(raw["3008"], d / "stocks" / "3008" / "price" / "yahoo_3008_2020.csv")
     _write(raw["0050"], d / "market" / "0050.csv")
     _write(raw["9999"].assign(turnover=1.0), d / "delisted" / "price" / "9999.csv")
 
@@ -118,6 +145,11 @@ def data_dir(tmp_path_factory, raw_prices) -> Path:
     pd.DataFrame([
         {"date": DIV_DAY.strftime("%Y-%m-%d"), "code": "1101", "kind": "權", "prev_close": prev,
          "ref": round(prev / 1.1, 2), "cash": 0.0, "stock_per_1000": 100.0, "split": 1.1},
+        # 0050 除息：Yahoo 不調整現金股利，所以寫檔的就是原始價
+        {"date": CASH_DAY.strftime("%Y-%m-%d"), "code": "0050", "kind": "息",
+         "prev_close": raw["0050"].loc[raw["0050"].index < CASH_DAY, "close"].iloc[-1],
+         "ref": round(raw["0050"].loc[raw["0050"].index < CASH_DAY, "close"].iloc[-1] - CASH_0050, 2),
+         "cash": CASH_0050, "stock_per_1000": 0.0, "split": 1.0},
         # 下市股的事件：原始價不應被還原
         {"date": "2020-01-20", "code": "9999", "kind": "權", "prev_close": 0.0,
          "ref": 0.0, "cash": 0.0, "stock_per_1000": 50.0, "split": 1.05},

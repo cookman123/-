@@ -32,7 +32,7 @@ def panel(data) -> Panel:
 
 
 def test_codes(data):
-    assert data.codes() == {"1101": "stock", "2000": "stock", "2330": "stock",
+    assert data.codes() == {"1101": "stock", "2000": "stock", "2330": "stock", "3008": "stock",
                             "9999": "delisted", "0050": "etf"}
 
 
@@ -55,7 +55,7 @@ def test_unadjust_ignores_events_outside_data():
     pd.testing.assert_frame_equal(unadjust(px, ev), px)
 
 
-@pytest.mark.parametrize("code", ["1101", "2330", "2000", "0050"])
+@pytest.mark.parametrize("code", ["1101", "2330", "2000", "3008", "0050"])
 def test_load_returns_raw_prices(data, raw_prices, code):
     kind = data.codes()[code]
     got = data.load(code, kind)

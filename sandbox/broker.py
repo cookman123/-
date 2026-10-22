@@ -2,13 +2,14 @@
 """
 台股交易規則：升降單位、成本、把目標權重換算成委託並撮合。
 
-規格見 docs/SANDBOX_PLAN.md §4。漲跌停鎖死、公司行動在 M2 加入。
+規格見 docs/SANDBOX_PLAN.md §4。公司行動與下市在 engine.py 處理。
 """
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
 
+import numpy as np
 import pandas as pd
 
 from .portfolio import Portfolio
@@ -24,6 +25,43 @@ def tick_size(price: float, etf: bool = False) -> float:
         if price < cap:
             return tick
     return 0.05 if etf else 5.0
+
+
+# 漲跌幅限制：2015-06-01 起由 ±7% 放寬為 ±10%
+LIMIT_CHANGE_DAY = pd.Timestamp("2015-06-01")
+
+
+def limit_prices(base: float, date, etf: bool = False) -> tuple[float, float]:
+    """
+    漲停價、跌停價（§4.2）。base 是前日收盤，除權息、減資恢復買賣日是參考價。
+    漲停往下、跌停往上取到升降單位；升降單位依取整前的價位決定。
+    """
+    up, down = limit_series(pd.Series([base], index=[pd.Timestamp(date)]), etf)
+    return float(up.iloc[0]), float(down.iloc[0])
+
+
+def limit_series(base: pd.Series, etf: bool = False) -> tuple[pd.Series, pd.Series]:
+    """limit_prices 的向量版。base 以日期為索引，缺值的日期（例如上市首日）沒有漲跌停。"""
+    r = np.where(base.index < LIMIT_CHANGE_DAY, 0.07, 0.10)
+    up, down = base * (1 + r), base * (1 - r)
+    tu, td = _tick_vec(up, etf), _tick_vec(down, etf)
+    return (np.floor(up / tu + 1e-9) * tu).round(4), (np.ceil(down / td - 1e-9) * td).round(4)
+
+
+def _tick_vec(price: pd.Series, etf: bool) -> pd.Series:
+    table = _ETF_TICKS if etf else _STOCK_TICKS
+    out = pd.Series(0.05 if etf else 5.0, index=price.index)
+    for cap, tick in reversed(table):
+        out[price < cap] = tick
+    return out
+
+
+def is_locked(price: float, extreme: float, limit: float, etf: bool = False) -> bool:
+    """成交價與當日最高（或最低）都等於漲停（或跌停）價：整天鎖住，日資料下的近似。"""
+    if pd.isna(limit) or pd.isna(price) or pd.isna(extreme):
+        return False
+    half = tick_size(limit, etf) / 2
+    return abs(price - limit) < half and abs(extreme - limit) < half
 
 
 # ============================== 成本 ==============================
@@ -80,13 +118,15 @@ class Broker:
         return 1 if self.odd_lot else self.lot
 
     def rebalance(self, pf: Portfolio, date: pd.Timestamp, weights: dict[str, float],
-                  ref: pd.Series, mark: pd.Series, kinds: dict[str, str]) -> None:
+                  ref: pd.Series, mark: pd.Series, kinds: dict[str, str],
+                  no_buy: frozenset = frozenset(), no_sell: frozenset = frozenset()) -> None:
         """
         以 ref 價（開盤或收盤）把持股調到目標權重。
 
         weights：未列出的持股目標為 0。
         ref：當日可成交的參考價，缺值的標的拒單 no_price。
         mark：計算淨值用的價格（當日 ref，缺值時用最近收盤），決定目標金額。
+        no_buy／no_sell：當日漲停／跌停鎖死的標的，買進／賣出拒單。
         先賣後買；買進的錢不夠時依比例縮單，不允許負現金。
         """
         nav = pf.value(mark)
@@ -103,9 +143,15 @@ class Broker:
             side_px = self.costs.exec_price(px, "buy")
             want = self._round(w * nav / side_px)
             if want < have:
-                sells.append((code, have - want, px))
+                if code in no_sell:
+                    pf.reject(date, code, "limit_down_locked")
+                else:
+                    sells.append((code, have - want, px))
             elif want > have:
-                buys.append((code, want - have, px))
+                if code in no_buy:
+                    pf.reject(date, code, "limit_up_locked")
+                else:
+                    buys.append((code, want - have, px))
 
         for code, n, px in sells:
             gross = n * self.costs.exec_price(px, "sell")

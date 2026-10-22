@@ -2,15 +2,15 @@
 """
 虛擬帳戶：現金、持股與帳冊。
 
-帳冊是唯一的真相來源：每一筆成交、拒單（之後還有公司行動）都是一列，
+帳冊是唯一的真相來源：每一筆成交、拒單、公司行動、下市都是一列，
 現金與持股的任何變動都必須對得上帳冊，會計恆等式的測試就是逐列重算。
 
 帳冊欄位
     date     成交日
-    type     buy / sell / reject
+    type     buy / sell / reject，以及 cash_dividend / stock_dividend / reduction / delisted
     code     代號
-    shares   股數（買賣皆為正）
-    ref      參考價（開盤或收盤，未含滑價）
+    shares   股數。買賣皆為正；其餘類型是持股的變動量（減少為負）
+    ref      參考價（開盤或收盤，未含滑價；公司行動是參考價，下市是最後收盤）
     price    成交價（含滑價）
     gross    股數 × 成交價
     fee      手續費
@@ -19,6 +19,8 @@
     reason   拒單原因
 """
 from __future__ import annotations
+
+import math
 
 import pandas as pd
 
@@ -56,6 +58,19 @@ class Portfolio:
         if not self.positions[code]:
             del self.positions[code]
         self._record(date, "sell", code, shares, ref, price, gross, fee, tax, flow)
+
+    def adjust(self, date, type_: str, code: str, shares: int, ref: float, cash: float) -> None:
+        """公司行動與下市：持股變動 shares 股、現金變動 cash 元，不收手續費與稅。"""
+        have = self.positions.get(code, 0)
+        if have + shares < 0:
+            raise ValueError(f"[{code}] {type_} 後持股為負")
+        if not math.isfinite(cash):
+            raise ValueError(f"[{code}] {type_} 的現金變動不是有限數值：{cash}")
+        self.cash += cash
+        self.positions[code] = have + shares
+        if not self.positions[code]:
+            del self.positions[code]
+        self._record(date, type_, code, shares, ref, ref, 0.0, 0.0, 0.0, cash)
 
     def reject(self, date, code: str, reason: str) -> None:
         self._ledger.append({"date": date, "type": "reject", "code": code, "reason": reason})

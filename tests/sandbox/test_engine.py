@@ -13,7 +13,7 @@ from sandbox.data import Panel, RepoData
 from sandbox.engine import Config, run
 from sandbox.strategies import BuyAndHold, DoNothing, Scripted
 
-from .conftest import CAL, DELIST_DAY
+from .conftest import CAL, CASH_0050, CASH_DAY, FLAT_DAY
 
 D0 = pd.Timestamp("2020-01-06")
 
@@ -36,20 +36,21 @@ def churn():
 def check_accounting(res, panel):
     """會計恆等式（§7）：逐日、逐筆重算都要對得上。"""
     led = res.ledger
-    trades = led[led["type"].isin(["buy", "sell"])]
+    moves = led[led["type"] != "reject"]
+    trades = moves[moves["type"].isin(["buy", "sell"])]
     # 每筆的現金流
     buys, sells = trades[trades["type"] == "buy"], trades[trades["type"] == "sell"]
     np.testing.assert_allclose(buys["cash"], -(buys["gross"] + buys["fee"]))
     np.testing.assert_allclose(sells["cash"], sells["gross"] - sells["fee"] - sells["tax"])
     np.testing.assert_allclose(trades["gross"], trades["shares"] * trades["price"])
-    # 期末現金 = 初始資金 + 帳冊現金流合計
-    assert res.nav["cash"].iloc[-1] == pytest.approx(res.config.initial_cash + trades["cash"].sum())
+    # 期末現金 = 初始資金 + 帳冊現金流合計（含股利、零股折現、下市）
+    assert res.nav["cash"].iloc[-1] == pytest.approx(res.config.initial_cash + moves["cash"].sum())
     # 逐日現金 + 持股市值 = 淨值
     close = panel.fields["close"].ffill().reindex(res.nav.index)
     held = (res.positions * close.reindex(columns=res.positions.columns)).sum(axis=1)
     np.testing.assert_allclose(res.nav["cash"] + held, res.nav["nav"])
-    # 持股 = 帳冊股數累加
-    signed = trades.assign(n=np.where(trades["type"] == "buy", trades["shares"], -trades["shares"]))
+    # 持股 = 帳冊股數累加（賣出為減少，公司行動與下市本身就是帶正負號的變動量）
+    signed = moves.assign(n=np.where(moves["type"] == "sell", -moves["shares"], moves["shares"]))
     from_ledger = signed.pivot_table(index="date", columns="code", values="n", aggfunc="sum") \
         .reindex(res.nav.index).fillna(0).cumsum()
     pd.testing.assert_frame_equal(from_ledger.reindex(columns=res.positions.columns, fill_value=0)
@@ -107,7 +108,8 @@ def test_buy_and_hold_tracks_price(panel):
     close = panel.fields["close"]["0050"]
     d1 = res.ledger.iloc[0]["date"]
     after = res.nav.loc[d1:, "nav"]
-    np.testing.assert_allclose(after - after.iloc[0], n * (close.loc[d1:] - close.loc[d1]))
+    div = np.where(close.loc[d1:].index >= CASH_DAY, n * CASH_0050, 0.0)
+    np.testing.assert_allclose(after - after.iloc[0], n * (close.loc[d1:] - close.loc[d1]) + div)
     assert res.nav.loc[d1, "cash"] < close.loc[d1]     # 零股、零成本：剩不到一股的錢
 
 
@@ -132,17 +134,12 @@ def test_min_fee_applied(panel):
 
 
 def test_no_price_rejected(panel):
-    """下市後沒有價格：新買進和賣出都拒單，持股以最後收盤價評價。"""
-    buy_day = DELIST_DAY - pd.offsets.BDay(5)
-    res = run(Scripted({buy_day: {"9999": 0.1}, DELIST_DAY: {}}), panel)
-    led = res.ledger
-    assert (led["type"] == "buy").sum() == 1
-    rej = led[led["type"] == "reject"]
-    assert list(rej["code"]) == ["9999"] and list(rej["reason"]) == ["no_price"]
-    last_close = panel.fields["close"].at[DELIST_DAY, "9999"]
-    shares = res.positions["9999"].iloc[-1]
-    assert shares > 0
-    assert res.nav["holdings"].iloc[-1] == pytest.approx(shares * last_close)
+    """停牌日沒有價格：賣出拒單，持股以最近收盤價評價。"""
+    res = run(Scripted({D0: {"1101": 0.2}, FLAT_DAY - pd.offsets.BDay(1): {}}), panel)
+    rej = res.ledger[res.ledger["type"] == "reject"]
+    assert list(rej["code"]) == ["1101"] and list(rej["reason"]) == ["no_price"]
+    assert list(rej["date"]) == [FLAT_DAY]
+    assert res.positions.at[FLAT_DAY, "1101"] > 0
 
 
 @pytest.mark.parametrize("w, why", [
