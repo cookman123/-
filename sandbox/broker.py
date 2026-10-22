@@ -119,16 +119,18 @@ class Broker:
 
     def rebalance(self, pf: Portfolio, date: pd.Timestamp, weights: dict[str, float],
                   ref: pd.Series, mark: pd.Series, kinds: dict[str, str],
-                  no_buy: frozenset = frozenset(), no_sell: frozenset = frozenset()) -> None:
+                  no_buy: dict[str, str] | None = None, no_sell: dict[str, str] | None = None) -> None:
         """
         以 ref 價（開盤或收盤）把持股調到目標權重。
 
         weights：未列出的持股目標為 0。
         ref：當日可成交的參考價，缺值的標的拒單 no_price。
         mark：計算淨值用的價格（當日 ref，缺值時用最近收盤），決定目標金額。
-        no_buy／no_sell：當日漲停／跌停鎖死的標的，買進／賣出拒單。
+        no_buy／no_sell：{代號: 原因}，當日不准買進／賣出的標的（漲跌停鎖死、風控停損），
+            拒單時記下原因。
         先賣後買；買進的錢不夠時依比例縮單，不允許負現金。
         """
+        no_buy, no_sell = no_buy or {}, no_sell or {}
         nav = pf.value(mark)
         codes = sorted(set(weights) | {c for c, n in pf.positions.items() if n})
         sells, buys = [], []
@@ -144,12 +146,12 @@ class Broker:
             want = self._round(w * nav / side_px)
             if want < have:
                 if code in no_sell:
-                    pf.reject(date, code, "limit_down_locked")
+                    pf.reject(date, code, no_sell[code])
                 else:
                     sells.append((code, have - want, px))
             elif want > have:
                 if code in no_buy:
-                    pf.reject(date, code, "limit_up_locked")
+                    pf.reject(date, code, no_buy[code])
                 else:
                     buys.append((code, want - have, px))
 

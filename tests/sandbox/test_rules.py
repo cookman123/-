@@ -10,11 +10,11 @@ import pytest
 
 from sandbox.broker import Broker, Costs, limit_prices
 from sandbox.data import Panel, RepoData
-from sandbox.engine import Config, run
+from sandbox.engine import Config
 from sandbox.strategies import BuyAndHold, Scripted
 
 from .conftest import CASH_0050, CASH_DAY, DELIST_DAY, DIV_DAY, LOCK_DOWN, LOCK_UP, RED_DAY
-from .test_engine import D0, check_accounting
+from .test_engine import D0, check_accounting, run
 
 ODD = Config(broker=Broker(odd_lot=True))
 

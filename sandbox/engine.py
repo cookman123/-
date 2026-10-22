@@ -7,7 +7,8 @@
     t+1 日       以開盤價（預設）或收盤價撮合；漲跌停鎖死的拒單
     t+1 日收盤   以收盤價評價淨值；停牌中沒有收盤價的持股用最近一次收盤價
 
-風控（§5）在 M3 加入；這裡只擋掉格式不合法的權重。
+風控（§5，risk.py）：策略回傳權重時先檢查格式、截個股上限；收盤淨值單日跌幅超過
+門檻時，之後幾個交易日只准減倉。
 """
 from __future__ import annotations
 
@@ -21,6 +22,7 @@ import pandas as pd
 from .broker import Broker, is_locked
 from .data import DataView, Panel
 from .portfolio import Portfolio
+from .risk import RiskLimits
 
 FILLS = ("next_open", "next_close")
 
@@ -35,6 +37,7 @@ class Config:
     initial_cash: float = 1_000_000.0
     fill: str = "next_open"
     broker: Broker = field(default_factory=Broker)
+    risk: RiskLimits = field(default_factory=RiskLimits)
 
     def __post_init__(self):
         if self.fill not in FILLS:
@@ -63,7 +66,9 @@ def run(strategy: Strategy, panel: Panel, start=None, end=None,
     close_ff = panel.fields["close"].ffill()
     ref_field = "open" if config.fill == "next_open" else "close"
     pf = Portfolio(config.initial_cash)
+    risk = config.risk
     pending: dict[str, float] | None = None
+    halt_left = 0
     prev = None
     nav_rows, pos_rows = [], []
     acts = defaultdict(list)
@@ -82,21 +87,30 @@ def run(strategy: Strategy, panel: Panel, start=None, end=None,
             else:
                 mark = close_ff.loc[d]
             no_buy, no_sell = _locked(panel, d, ref_field)
+            if halt_left > 0:
+                no_buy = {c: "risk_halt" for c in pending} | no_buy
             config.broker.rebalance(pf, d, pending, ref, mark, panel.kinds, no_buy, no_sell)
             pending = None
+        halt_left = max(halt_left - 1, 0)
 
         mark = close_ff.loc[d]
         nav = pf.value(mark)
+        if nav_rows and risk.halt_days > 0 and risk.breached(nav, nav_rows[-1]["nav"]):
+            halt_left = risk.halt_days
+            pf.note(d, "*", f"daily_loss_halt: {nav / nav_rows[-1]['nav'] - 1:+.2%}，"
+                            f"之後 {risk.halt_days} 個交易日只准減倉")
         nav_rows.append({"date": d, "cash": pf.cash, "holdings": nav - pf.cash, "nav": nav})
         pos_rows.append(pd.Series(pf.positions, name=d, dtype="int64"))
 
         w = strategy.generate(d, DataView(panel, d))
         if w is not None:
-            why = _invalid(w, panel)
+            why = risk.invalid(w, panel.kinds)
             if why:
                 pf.reject(d, "*", f"invalid_weights: {why}")
             else:
-                pending = dict(w)
+                pending, clipped = risk.cap(dict(w), panel.kinds)
+                for code, x in clipped.items():
+                    pf.note(d, code, f"weight_cap: {x:.4f} → {risk.max_stock_weight:.4f}")
         prev = d
 
     nav_df = pd.DataFrame(nav_rows).set_index("date")
@@ -138,7 +152,7 @@ def _fraction_cash(frac: float, ref: float) -> float:
     return frac * ref if frac > 1e-9 else 0.0
 
 
-def _locked(panel: Panel, d, ref_field: str) -> tuple[frozenset, frozenset]:
+def _locked(panel: Panel, d, ref_field: str) -> tuple[dict[str, str], dict[str, str]]:
     """
     當日漲停鎖死（買不到）與跌停鎖死（賣不掉）的標的（§4.2）。
     開盤成交：開盤 = 最高 = 漲停價；收盤成交：收盤 = 最高 = 漲停價。跌停反之。
@@ -146,25 +160,11 @@ def _locked(panel: Panel, d, ref_field: str) -> tuple[frozenset, frozenset]:
     f = panel.fields
     px, hi, lo = f[ref_field].loc[d], f["high"].loc[d], f["low"].loc[d]
     up, down = f["limit_up"].loc[d], f["limit_down"].loc[d]
-    no_buy, no_sell = set(), set()
+    no_buy, no_sell = {}, {}
     for code in px.index[px.notna()]:
         etf = panel.kinds.get(code) == "etf"
         if is_locked(px[code], hi[code], up[code], etf):
-            no_buy.add(code)
+            no_buy[code] = "limit_up_locked"
         if is_locked(px[code], lo[code], down[code], etf):
-            no_sell.add(code)
-    return frozenset(no_buy), frozenset(no_sell)
-
-
-def _invalid(w: dict[str, float], panel: Panel) -> str | None:
-    """權重格式檢查（§5 最後一條）。合法時回傳 None。"""
-    for code, x in w.items():
-        if code not in panel.kinds:
-            return f"未知代號 {code}"
-        if not isinstance(x, (int, float)) or not math.isfinite(x):
-            return f"{code} 權重不是有限數值"
-        if x < 0:
-            return f"{code} 權重為負"
-    if sum(w.values()) > 1 + 1e-9:
-        return f"權重總和 {sum(w.values()):.4f} > 1"
-    return None
+            no_sell[code] = "limit_down_locked"
+    return no_buy, no_sell

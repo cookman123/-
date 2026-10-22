@@ -7,7 +7,7 @@
 
 帳冊欄位
     date     成交日
-    type     buy / sell / reject，以及 cash_dividend / stock_dividend / reduction / delisted
+    type     buy / sell / reject / risk，以及 cash_dividend / stock_dividend / reduction / delisted
     code     代號
     shares   股數。買賣皆為正；其餘類型是持股的變動量（減少為負）
     ref      參考價（開盤或收盤，未含滑價；公司行動是參考價，下市是最後收盤）
@@ -16,7 +16,7 @@
     fee      手續費
     tax      證交稅
     cash     對現金的影響（買進為負）
-    reason   拒單原因
+    reason   拒單原因、風控介入的說明
 """
 from __future__ import annotations
 
@@ -74,6 +74,10 @@ class Portfolio:
 
     def reject(self, date, code: str, reason: str) -> None:
         self._ledger.append({"date": date, "type": "reject", "code": code, "reason": reason})
+
+    def note(self, date, code: str, reason: str) -> None:
+        """風控介入（截權重、停損）。不動現金與持股。"""
+        self._ledger.append({"date": date, "type": "risk", "code": code, "reason": reason})
 
     def value(self, prices: pd.Series) -> float:
         """現金 + 持股市值。持股缺價時報錯，由呼叫端決定用哪個價格補。"""

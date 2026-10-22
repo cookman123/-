@@ -2,6 +2,7 @@
 """帳戶、撮合、成本（計劃 M1）。"""
 from __future__ import annotations
 
+import dataclasses
 import math
 
 import numpy as np
@@ -10,12 +11,20 @@ import pytest
 
 from sandbox.broker import Broker, Costs
 from sandbox.data import Panel, RepoData
-from sandbox.engine import Config, run
+from sandbox import engine
+from sandbox.engine import Config
+from sandbox.risk import RiskLimits
 from sandbox.strategies import BuyAndHold, DoNothing, Scripted
 
 from .conftest import CAL, CASH_0050, CASH_DAY, FLAT_DAY
 
 D0 = pd.Timestamp("2020-01-06")
+
+
+def run(strategy, panel, config=None, **kw):
+    """M1、M2 測的是撮合與會計，關掉個股上限與停損；風控在 test_risk.py 另測。"""
+    config = dataclasses.replace(config or Config(), risk=RiskLimits.none())
+    return engine.run(strategy, panel, config=config, **kw)
 
 
 @pytest.fixture(scope="module")
@@ -36,7 +45,7 @@ def churn():
 def check_accounting(res, panel):
     """會計恆等式（§7）：逐日、逐筆重算都要對得上。"""
     led = res.ledger
-    moves = led[led["type"] != "reject"]
+    moves = led[~led["type"].isin(["reject", "risk"])]
     trades = moves[moves["type"].isin(["buy", "sell"])]
     # 每筆的現金流
     buys, sells = trades[trades["type"] == "buy"], trades[trades["type"] == "sell"]
