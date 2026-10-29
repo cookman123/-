@@ -1,0 +1,75 @@
+載入開盤價面板…
+  季數 66　2010-03 ~ 2026-06　母體每季約 250 檔
+建立時點正確的財報面板…
+fundamental_factors.py:130: DtypeWarning: Columns (0: div_year) have mixed types. Specify dtype option on import or set low_memory=False.
+  d = pd.concat([pd.read_csv(f, dtype={"code": str}, parse_dates=["date"]) for f in files])
+fundamental_factors.py:130: DtypeWarning: Columns (0: div_year) have mixed types. Specify dtype option on import or set low_memory=False.
+  d = pd.concat([pd.read_csv(f, dtype={"code": str}, parse_dates=["date"]) for f in files])
+C:\Users\<user>\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\nanops.py:1673: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  return spearmanr(a, b)[0]
+fundamental_factors.py:210: RuntimeWarning: Mean of empty slice.
+  t_ic = float(ic.mean() / (ic.std(ddof=1) / np.sqrt(len(ic))))
+C:\Users\<user>\AppData\Local\Programs\Python\Python312\Lib\site-packages\numpy\_core\_methods.py:144: RuntimeWarning: invalid value encountered in scalar divide
+  ret = ret.dtype.type(ret / rcount)
+C:\Users\<user>\AppData\Local\Programs\Python\Python312\Lib\site-packages\numpy\_core\_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
+  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
+C:\Users\<user>\AppData\Local\Programs\Python\Python312\Lib\site-packages\numpy\_core\_methods.py:180: RuntimeWarning: invalid value encountered in divide
+  arrmean = um.true_divide(arrmean, div, out=arrmean,
+C:\Users\<user>\AppData\Local\Programs\Python\Python312\Lib\site-packages\numpy\_core\_methods.py:214: RuntimeWarning: invalid value encountered in scalar divide
+  ret = ret.dtype.type(ret / rcount)
+fundamental_factors.py:215: RuntimeWarning: Mean of empty slice.
+  if ic.mean() < 0:
+fundamental_factors.py:219: RuntimeWarning: Mean of empty slice.
+  "IC平均": ic.mean(), "IC_t": t_ic, "IC_p": p_ic,
+  各因子可用起點：fin_rev_yoy 2011-03、fin_rev_yoy3 2011-06、fin_rev_accel 2011-06、fin_ni_yoy 2014-06、fin_sue 2015-06、fin_roe 2014-06、fin_gm 2013-06、fin_gm_chg 2014-06、fin_opm 2013-06、fin_debt 2013-06、fin_ep 2015-03、fin_bp 2015-03、fin_dy 2015-03、fin_rev_vs_high 2012-03、fin_rev_yoy12 2012-03、fin_asset_growth 2014-06
+  加入 105 個價量特徵一起檢定
+
+============================================================================================================
+財報因子（季頻，前 250 名，方向依 IC 符號）
+============================================================================================================
+  特徵                      起   季數     IC平均    IC_t     IC_p      多空年化     勝率      前十分位-母體  FDR
+  fin_rev_vs_high   2012-03   58  +0.0612    4.66   0.0000   +11.61%    62%       +3.21%    ✓
+  fin_debt          2013-06   53  +0.0519    4.21   0.0001    +2.17%    53%       +0.12%    ✓
+  fin_rev_yoy       2011-03   62  +0.0551    3.78   0.0004   +13.61%    60%       +2.68%    ✓
+  fin_rev_yoy3      2011-06   61  +0.0568    3.78   0.0004   +13.04%    72%       +2.43%    ✓
+  fin_rev_accel     2011-06   61  +0.0367    3.36   0.0014    +2.96%    46%       +1.51%    ✓
+  fin_ep            2015-03   40  +0.0575    2.99   0.0048    -4.55%    42%       -0.49%    ✓
+  fin_dy            2015-03   40  +0.0729    2.92   0.0058   -10.89%    38%       -1.28%    ✓
+  fin_sue           2015-06   45  +0.0434    2.53   0.0151   +14.18%    64%       +2.24%     
+  fin_gm_chg        2014-06   49  +0.0325    2.21   0.0316    +2.43%    61%       +1.51%     
+  fin_opm           2013-06   53  +0.0341    2.18   0.0339    -7.84%    51%       -0.44%     
+  fin_bp            2015-03   40  +0.0368    1.47   0.1499    -0.28%    45%       +0.22%     
+  fin_ni_yoy        2014-06   49  +0.0237    1.42   0.1631    -1.57%    57%       +0.48%     
+  fin_asset_growth  2014-06   49  -0.0136   -0.82   0.4142    +2.15%    47%       -0.27%     
+  fin_rev_yoy12     2012-03   58  +0.0084    0.52   0.6024    -1.14%    45%       +0.29%     
+  fin_roe           2014-06   49  +0.0111    0.47   0.6378   -11.33%    43%       +0.04%     
+  fin_gm            2013-06   53  -0.0013   -0.08   0.9373    -3.75%    40%       -0.31%     
+
+  共 121 個特徵一起做 FDR（含價量特徵），財報因子通過 7 個
+
+============================================================================================================
+多重比較：十分位多空（扣成本）一起送 Reality Check ／ SPA
+============================================================================================================
+  只有財報因子：16 組 × 62 季　最佳 fin_rev_yoy（季均 +3.66%）
+    K = 16
+    n = 62
+    平均區塊 = 4
+    最佳策略序號 = 3
+    RC統計量 = 0.2880
+    RC_p = 0.0270
+    SPA統計量 = 3.2794
+    SPA_p = 0.0100
+    最佳策略單獨t值 = 3.2794
+  財報＋其他：121 組 × 66 季　最佳 ts_ma120_dev（季均 +4.78%）
+    K = 121
+    n = 66
+    平均區塊 = 4
+    最佳策略序號 = 1
+    RC統計量 = 0.3885
+    RC_p = 0.0860
+    SPA統計量 = 3.4582
+    SPA_p = 0.0220
+    最佳策略單獨t值 = 3.4582
+
+輸出：results\fundamental\factors_with_price_extra.csv
+EXIT 0

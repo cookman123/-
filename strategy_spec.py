@@ -7,9 +7,13 @@
 ----------------------------------
 選股範圍   每日以「近 60 個交易日平均成交金額」排名，取前 250 名
            用成交金額而非市值：成交金額當天就知道，且直接代表能不能成交
-選股       每季（63 個交易日）第一天，在範圍內取「近 60 日報酬標準差」最高的 30 檔
+選股       每 42 個交易日（約兩個月）第一天，在範圍內以「近 60 日報酬標準差」排名
            排名用前一日為止的資料，當日收盤才建立部位
-權重       等權，期間內不再調整，讓權重隨價格漂移
+緩衝帶     舊持股排名仍在前 40 名就續抱，掉出前 40 名才賣；空出的位置由排名最高的
+           非持股補滿 30 檔
+權重       第一次等權；之後續抱的部位不拉回等權，賣出所得平均分給新買進的股票
+           期間內不再調整，讓權重隨價格漂移
+           （舊規則是每 63 天、只留前 30 名、每次重設等權，回測一併列出對照）
 趨勢過濾   大盤收在 120 日均線之上才持有；跌破則全數出場、空手等待
            訊號用前一日收盤判斷，次日執行
 成本       手續費 0.1425% 的 3 折，買賣各一次；賣出加證交稅 0.3%
@@ -46,7 +50,72 @@ from portfolio_backtest import nw_tstat  # noqa: E402
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "results" / "spec"
 FEE, TAX = 0.001425 * 0.3, 0.003
-UNIVERSE_N, TOP_N, REBAL, VOL_WIN, MA = 250, 30, 63, 60, 120
+UNIVERSE_N, TOP_N, REBAL, SELL_N, VOL_WIN, MA = 250, 30, 42, 40, 60, 120
+OLD_REBAL = 63
+# 目前實際持股（欄位「代號」），有這個檔才能算緩衝帶的續抱／賣出；沒有就當成空手
+HOLDINGS = OUT / "holdings.csv"
+
+
+def backtest_buffer(score: pd.DataFrame, C: pd.DataFrame, mask: pd.DataFrame,
+                    top_n: int, rebal: int, sell_n: int) -> pd.Series:
+    """
+    緩衝帶版的 F.backtest：舊持股排名在前 sell_n 名內就續抱、保留漂移後的權重，
+    掉出才賣；賣出所得平均分給補進來的新股。成本計法與 F.backtest 相同。
+
+    2006 起回測（含成本）：42 天＋前 40 名賣出線 年化 +23.4%（t 3.15），
+    舊規則 63 天＋前 30 名＋重設等權 +19.0%（t 2.41）。成本只省約 0.2 個百分點，
+    多出來的主要來自「不重設等權」讓漲多的股票續抱，且集中在 2016 年後，
+    前半段（2006–2015）超額 t 只有 1.1。另外這是從約 16 種組合中挑出的，有挑選偏誤。
+    """
+    dates = C.index
+    rebs = list(range(0, len(dates), rebal))
+    nav, nav_d, prev = [1.0], [], pd.Series(dtype=float)
+
+    for bi, i0 in enumerate(rebs):
+        i1 = rebs[bi + 1] if bi + 1 < len(rebs) else len(dates) - 1
+        if i1 <= i0:
+            continue
+        d0 = dates[i0]
+        s = score.loc[d0].dropna() if d0 in score.index else pd.Series(dtype=float)
+        if s.empty:
+            continue
+        seg = dates[i0:i1 + 1]
+        cand = [c for c in s.index if c in C.columns and c in mask.columns
+                and bool(mask.at[d0, c])] if d0 in mask.index else []
+        p0 = C.loc[d0, cand]
+        cand = [c for c in cand if pd.notna(p0[c]) and p0[c] > 0]
+        if len(cand) < min(top_n, 10):
+            continue
+        rank = s[cand].rank(ascending=False)
+        keep = sorted((c for c in prev.index if c in rank.index and rank[c] <= sell_n),
+                      key=lambda c: rank[c])[:top_n]
+        new = [c for c in rank.sort_values().index if c not in keep][:top_n - len(keep)]
+        if prev.empty:
+            w = pd.Series(1.0 / len(new), index=new)
+        elif new:
+            kw = prev.reindex(keep)
+            w = pd.concat([kw, pd.Series((1 - kw.sum()) / len(new), index=new)])
+        else:
+            w = prev.reindex(keep) / prev.reindex(keep).sum()
+
+        allc = prev.index.union(w.index)
+        diff = w.reindex(allc).fillna(0.0) - prev.reindex(allc).fillna(0.0)
+        sell, buy = float(-diff[diff < 0].sum()), float(diff[diff > 0].sum())
+        nav[-1] *= (1 - sell * (FEE + TAX) - buy * FEE)
+
+        px = C.loc[seg, w.index].ffill()
+        rel = px.div(px.iloc[0], axis=1)
+        val = (rel * w).sum(axis=1)
+        val = val / val.iloc[0]
+        for j in range(1, len(seg)):
+            nav.append(nav[-1] * float(val.iloc[j] / val.iloc[j - 1]))
+            nav_d.append(seg[j])
+        last = rel.iloc[-1] * w
+        prev = last / last.sum()
+
+    if not nav_d:
+        return pd.Series(dtype=float)
+    return pd.Series(nav[1:], index=pd.DatetimeIndex(nav_d)).pct_change().dropna()
 
 
 def apply_filter(strat: pd.Series, bench_px: pd.Series, ma: int) -> tuple:
@@ -99,14 +168,19 @@ def main(argv=None) -> int:
 
     tw = pd.read_csv(ROOT / "data" / "market" / "TWII.csv",
                      parse_dates=["date"]).set_index("date")["close"]
-    strat = F.backtest(vol, C, mask, TOP_N, REBAL)
+    strat = backtest_buffer(vol, C, mask, TOP_N, REBAL, SELL_N)
     filt, sig, sw = apply_filter(strat, tw, MA)
     bh = tw.pct_change().reindex(strat.index).fillna(0.0)
+    old = F.backtest(vol, C, mask, TOP_N, OLD_REBAL)
+    old_filt, _, _ = apply_filter(old, tw, MA)
+    old_bh = tw.pct_change().reindex(old.index).fillna(0.0)
 
     print(f"\n{'=' * 92}\n一、回測結果\n{'=' * 92}")
     rows = [("大盤買進持有", perf(bh)),
             ("高波動（無過濾）", perf(strat, bh)),
-            (f"高波動 ＋ {MA} 日均線過濾", perf(filt, bh))]
+            (f"高波動 ＋ {MA} 日均線過濾", perf(filt, bh)),
+            (f"舊規則：{OLD_REBAL} 天、重設等權（無過濾）", perf(old, old_bh)),
+            (f"舊規則：{OLD_REBAL} 天、重設等權 ＋ 過濾", perf(old_filt, old_bh))]
     print(f"  {'設定':<24}{'年化':>9}{'夏普':>7}{'最大回撤':>10}"
           f"{'報酬/回撤':>10}{'超額':>9}{'超額t':>7}")
     for name, s in rows:
@@ -152,17 +226,44 @@ def main(argv=None) -> int:
     s = vol.loc[last].dropna()
     cand = [c for c in s.index if c in mask.columns and bool(mask.at[last, c])] \
         if last in mask.index else list(s.index)
-    picks = s[cand].nlargest(TOP_N)
+    # 換倉排程跟回測一樣，從面板第一天起每 REBAL 個交易日一次
+    i_last = C.index.get_loc(last)
+    prev_reb = C.index[i_last // REBAL * REBAL]
+    left = (i_last // REBAL + 1) * REBAL - i_last
+    print(f"  換倉排程　　　每 {REBAL} 個交易日；上次換倉日 {prev_reb:%Y-%m-%d}，"
+          f"約 {left} 個交易日後再換")
+
+    held = []
+    if HOLDINGS.exists():
+        held = pd.read_csv(HOLDINGS, dtype={"代號": str}, encoding="utf-8-sig")["代號"].tolist()
+    rank = s[cand].rank(ascending=False)
+    keep = sorted((c for c in held if c in rank.index and rank[c] <= SELL_N),
+                  key=lambda c: rank[c])[:TOP_N]
+    new = [c for c in rank.sort_values().index if c not in keep][:TOP_N - len(keep)]
+    sold = [c for c in held if c not in keep]
+    picks = s[keep + new].sort_values(ascending=False)
     sec = {r["code"]: (r["name"], r["category"]) for r in
            json.load(open(ROOT / "data" / "industry_stock_map.json", encoding="utf-8"))}
-    print(f"\n  若今日換倉，會持有的 30 檔（依近 {VOL_WIN} 日波動度排序）：")
-    print(f"  {'代號':<8}{'名稱':<12}{'產業':<12}{'年化波動':>10}")
+    if not held:
+        print(f"  （沒有 {HOLDINGS.name}，視同空手：直接取前 {TOP_N} 名等權買進）")
+    print(f"\n  若今日換倉，會持有的 30 檔（依近 {VOL_WIN} 日波動度排序；"
+          f"舊持股在前 {SELL_N} 名內續抱，賣出所得平均分給新買進）：")
+    print(f"  {'代號':<8}{'名稱':<12}{'產業':<12}{'排名':>6}{'年化波動':>10}  動作")
     out_rows = []
     for code, v in picks.items():
         nm, cat = sec.get(code, ("？", "？"))
         av = v * np.sqrt(252)
-        print(f"  {code:<8}{nm:<12}{cat:<12}{av:>10.1%}")
-        out_rows.append({"代號": code, "名稱": nm, "產業": cat, "年化波動": av})
+        act = "續抱" if code in keep else "買進"
+        print(f"  {code:<8}{nm:<12}{cat:<12}{int(rank[code]):>6}{av:>10.1%}  {act}")
+        out_rows.append({"代號": code, "名稱": nm, "產業": cat, "排名": int(rank[code]),
+                         "年化波動": av, "動作": act})
+    for code in sold:
+        nm, cat = sec.get(code, ("？", "？"))
+        r_ = f"{int(rank[code])}" if code in rank.index else "範圍外"
+        print(f"  {code:<8}{nm:<12}{cat:<12}{r_:>6}{'':>10}  賣出")
+        out_rows.append({"代號": code, "名稱": nm, "產業": cat,
+                         "排名": int(rank[code]) if code in rank.index else np.nan,
+                         "年化波動": np.nan, "動作": "賣出"})
     pd.DataFrame(out_rows).to_csv(OUT / "current_picks.csv",
                                   index=False, encoding="utf-8-sig")
     cats = pd.Series([sec.get(c, ("", "？"))[1] for c in picks.index]).value_counts()

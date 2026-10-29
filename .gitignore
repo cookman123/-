@@ -49,3 +49,10 @@ results/news_direction/panel.csv
 results/volatility_news/daily_panel.csv
 results/portfolio_long11/excess_returns_*.csv
 results/pf_long11_purged/excess_returns_*.csv
+results/revenue_event/events.csv
+
+# 前端執行指令的鎖檔
+logs/
+
+# 本機工具設定
+.claude/

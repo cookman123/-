@@ -48,8 +48,9 @@ import tw_stock_crawler as X  # noqa: E402
 MARKET = ROOT / "data" / "market"
 STOCKS = ROOT / "data" / "stocks"
 LOGDIR = ROOT / "data" / "daily"
-INDEX_JOBS = [("^TWII", "TWII"), ("0050.TW", "0050"), ("^SOX", "SOX"),
-              ("^IXIC", "IXIC"), ("^GSPC", "GSPC")]
+# 大盤之外，fetch_index_targets.py 列的 ETF、海外指數、油價全部每日更新
+from fetch_index_targets import TARGETS as _TARGETS  # noqa: E402
+INDEX_JOBS = [("^TWII", "TWII")] + [(sym, name) for sym, name, _, _ in _TARGETS]
 COOLDOWN = (3.0, 6.0)
 
 

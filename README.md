@@ -24,6 +24,10 @@
   - 納入下市股後只少約 0.4～1.2 個百分點。
   - 但它是 beta 大於 1 的風險補償：beta 中性後 +7.84%（t 1.87）不顯著，對同波動的槓桿大盤只差 −1.43%（t 0.25）。
   - 2003 起的日頻長期版 RC p 0.053～0.061，在門檻邊緣。
+- **營收年增率（唯一不是 beta 的候選）**：補上公開資訊觀測站的月營收後，營收年增率最高的十分位減最低的十分位，
+  扣成本年化約 +13%，對大盤 beta 0.41（只到 2024 年時 0.05）、alpha 年化 +8.9%（t 2.36）。
+  控制價格動能、納入下市股、排除 2025–2026 後都還在。
+  但和 105 個價量特徵一起做多重比較時 RC p 0.086、SPA p 0.022，屬邊緣；2011–2018 也不顯著。
 - **跌深反彈**：2011–2024 每筆淨報酬 +0.34%（群集 t 2.41），大型股更強。
   但做成組合後輸給持有 0050（20 格年化差 −10.64%，t −2.34）。
 - **費半隔夜訊號**：對台股現貨盤中報酬有預測力（強弱組差 +0.365%，群集 t 7.04），
@@ -66,6 +70,9 @@ White Reality Check／Hansen SPA 校正資料窺探、事先固定變體再一�
 ├─ overnight_lead.py、taifex_crawler.py                海外隔夜訊號、期貨時段分解
 ├─ survivorship_fix.py、delisted_*.py、adjust_delisted.py   生存者偏誤（納入下市股）
 ├─ fill_2011_gap.py、corp_actions.py、dividend_check.py     資料修補、除權息、現金股利
+├─ financials_crawler.py、fundamental_factors.py、fundamental_verify.py   財報與營收因子
+├─ revenue_event_study.py  月營收公告事件研究（四種基準：母體、成交值×波動、產業、大盤）
+├─ frontend/               本機 Streamlit 前端（app.py 進入點，六頁）
 ├─ tw_*_crawler.py、intl_news_crawler.py、daily_update.py    資料爬蟲與每日更新
 ├─ tool/                    稽核與對照工具（價格跳動掃描、前視 A/B、2011 修正 A/B）
 └─ results/                 結論文件、各分析的摘要表與執行紀錄
@@ -86,6 +93,7 @@ repo 只附兩個小檔：`data/industry_stock_map.json`（股票與產業對照
 - 指數與 ETF：`tw_market_index.py`、`fetch_index_targets.py`
 - 三大法人買賣超：證交所 T86 日報（`davis_tw/prepare_chips.py` 轉成單股 CSV）
 - 本益比、股價淨值比、殖利率：證交所 BWIBBU（`tw_fundamentals_crawler.py`）
+- 月營收（2010 起）、季報損益表與資產負債表（2013 起）：公開資訊觀測站彙總表（`financials_crawler.py`）
 - 除權息與減資：證交所 TWT49U、TWTAUU（`corp_actions.py`）
 - 下市股：證交所 OpenAPI 終止上市清單與 STOCK_DAY（`delisted_crawler.py`、`delisted_prices.py`）
 - 個股新聞、PTT：`tw_text_crawler.py`、`ptt_to_stock.py`；國際新聞：`intl_news_crawler.py`
@@ -107,10 +115,31 @@ pip install -r requirements.txt
 `highvol_controls.py`／`highvol_diagnose.py`／`strategy_spec.py`（長期版與趨勢過濾）。
 `tool/rerun_audit.sh` 是資料稽核後重跑所有存活策略的完整腳本。
 
+## 本機前端
+
+介面沿用 [jameschen108/tw-stock-quant](https://github.com/jameschen108/tw-stock-quant) 的 Streamlit 前端（同樣的版面、樣式、
+資料狀態列與「執行」視窗），內容換成本研究的資料與結果：
+
+- **總覽**：大盤是否在 120 日線之上、本月營收事件（創新高且年增≥30%、年增≤−20%）、高波動清單、研究重點
+- **個股**：383 檔的價格、月營收（標出創歷史新高）、季財報、三大法人、營收事件後的超額報酬紀錄
+- **策略**：高波動＋趨勢過濾的回測、beta 分解、5 日標籤策略的累積淨值、118／121 個特徵的季頻檢定
+- **營收研究**：事件研究的四種基準比較、財報因子、五道驗證
+- **產業**：照朋友後來加的主題頁做的強弱排行、產業指數走勢、成分股；他的主題成分大多不在本研究的 383 檔裡，改用產業分類（第一次開要讀全部行情，約 40 秒）
+- **研究結論**：`results/研究結論總整理.md` 依章節閱讀
+
+```bash
+pip install -r frontend/requirements.txt
+python -m streamlit run frontend/app.py --server.address 127.0.0.1
+```
+
+瀏覽器開 `http://127.0.0.1:8501`。前端只讀 `data/` 與 `results/`，唯一的例外是「執行」視窗裡的三個固定指令
+（`daily_update.py --no-news`、`strategy_spec.py`、`revenue_event_study.py`）。頁首會提醒股價、母體快取或清單是否過舊。
+沒有朋友專案的 TEJ 授權資料、LLM 分析師與模擬持股，這三塊沒有搬過來。
+
 ## 限制
 
 - 未計入流動性衝擊；大盤基準為價格指數
-- 基本面資料自 2015 年起；PTT 與個股新聞自 2019 年起；國際新聞自 2014 年起
+- 估值資料（本益比等）自 2015 年起、季報自 2013 年起、月營收自 2010 年起；PTT 與個股新聞自 2019 年起；國際新聞自 2014 年起
 - 主題詞表是人工編寫的關鍵詞比對，不是語意模型
 - 股價來源 Yahoo 有漏調整的公司行動，已用修正表處理已知的 222 筆，但無法保證沒有遺漏
 
