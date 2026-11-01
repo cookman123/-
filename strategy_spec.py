@@ -202,6 +202,9 @@ def main(argv=None) -> int:
         print(f"  {y:<6}{r['策略']:>+10.1%}{r['大盤']:>+10.1%}{r['差']:>+10.1%}")
     print(f"  勝過大盤 {win}/{len(yr)} 年")
     yr.to_csv(OUT / "yearly.csv", encoding="utf-8-sig")
+    # 逐日報酬留給 significance_check.py 當參考分布
+    pd.DataFrame({"策略": filt, "無過濾": strat, "大盤": bh, "在場": sig.astype(int)}
+                 ).to_csv(OUT / "daily.csv", index_label="date", encoding="utf-8-sig")
     pd.DataFrame([{"設定": n, **s} for n, s in rows]).to_csv(
         OUT / "summary.csv", index=False, encoding="utf-8-sig")
 
