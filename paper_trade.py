@@ -3,6 +3,10 @@
 """
 模擬下單：流程圖「實際操作 → 回傳至 DB 留存」的模擬版，存在 db/local.db 的 paper_orders。
 
+可以開多個模擬帳戶（paper_accounts 表）：每個帳戶有自己的名稱、起始資金、閒置資金設定，
+委託、現金、持股、自動下單批次都分開算。所有函式的 acct 參數就是帳戶編號，預設 1（預設帳戶）。
+舊版只有一個帳戶，設定存在 paper_account（key／value）表；第一次執行時自動搬成 1 號帳戶。
+
 成交規則和所有回測一樣：下單日（視角日期）收盤後才下單，**下一個交易日開盤**成交。
 下單日可以是過去（回到當時的視角模擬），也可以是未來（預約賣出：到那天收盤後送出，
 隔天開盤成交）。還沒有隔天開盤價的單，狀態是「待成交」，DB 更新股價後再重新結算就會成交。
@@ -24,7 +28,7 @@
 成本同 strategy_spec.py：手續費 0.1425% × 3 折、買賣各一次，賣出另加證交稅 0.3%。
 實際券商有每筆最低 20 元手續費、漲跌停鎖死買不到賣不掉，這裡都沒有模擬。
 
-paper_orders 與 paper_account 和 ops_log 一樣，build_local_db.py 重建時不會清掉。
+paper_orders、paper_accounts 和 ops_log 一樣，build_local_db.py 重建時不會清掉。
 """
 from __future__ import annotations
 
@@ -40,6 +44,7 @@ FEE, TAX = 0.001425 * 0.3, 0.003
 ETF, ETF_TAX, SWEEP = "0050", 0.001, "__0050__"
 INITIAL_CASH = 1_000_000
 STATUS = {"pending": "待成交", "filled": "已成交", "rejected": "退單", "cancelled": "已取消"}
+SETTINGS = ("initial_cash", "sweep", "sweep_start")          # paper_accounts 裡可以用 setting() 讀寫的欄位
 
 
 def connect(db: str | Path = DB) -> sqlite3.Connection:
@@ -56,67 +61,122 @@ def ensure(con) -> None:
         shares INTEGER NOT NULL CHECK (shares > 0), strategy TEXT, note TEXT,
         status TEXT NOT NULL DEFAULT 'pending', fill_date TEXT, fill_price REAL,
         fee REAL, tax REAL, reason TEXT)""")
-    # 後來加的條件賣單欄位；舊表補上
+    # 後來加的欄位；舊表補上
     have = {r[1] for r in con.execute("PRAGMA table_info(paper_orders)")}
     for col, typ in (("stop", "REAL"), ("target", "REAL"), ("expire_date", "TEXT"), ("trigger", "TEXT"),
-                     ("batch", "TEXT"), ("parent", "INTEGER")):
+                     ("batch", "TEXT"), ("parent", "INTEGER"), ("account", "INTEGER NOT NULL DEFAULT 1")):
         if col not in have:
             con.execute(f"ALTER TABLE paper_orders ADD COLUMN {col} {typ}")
-    con.execute("CREATE TABLE IF NOT EXISTS paper_account (key TEXT PRIMARY KEY, value TEXT)")
-    con.execute("INSERT OR IGNORE INTO paper_account VALUES ('initial_cash', ?)", [str(INITIAL_CASH)])
+    con.execute("""CREATE TABLE IF NOT EXISTS paper_accounts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE,
+        initial_cash REAL NOT NULL, sweep INTEGER NOT NULL DEFAULT 1, sweep_start TEXT,
+        created_at TEXT DEFAULT (datetime('now', 'localtime')))""")
+    if not con.execute("SELECT 1 FROM paper_accounts").fetchone():
+        # 舊版單一帳戶的設定搬過來當 1 號帳戶
+        old = {}
+        if con.execute("SELECT name FROM sqlite_master WHERE name = 'paper_account'").fetchone():
+            old = dict(con.execute("SELECT key, value FROM paper_account"))
+        con.execute("INSERT INTO paper_accounts (id, name, initial_cash, sweep, sweep_start) VALUES (1, ?, ?, ?, ?)",
+                    ["預設帳戶", float(old.get("initial_cash", INITIAL_CASH)), int(old.get("sweep", "1")),
+                     old.get("sweep_start") or None])
     con.commit()
 
 
-def setting(con, key: str, default: str = "") -> str:
-    r = con.execute("SELECT value FROM paper_account WHERE key = ?", [key]).fetchone()
-    return r[0] if r else default
+# ---------------------------------------------------------------- 帳戶
+
+def accounts(con) -> pd.DataFrame:
+    return pd.read_sql("SELECT a.id, a.name, a.initial_cash, a.sweep, a.created_at, COUNT(o.id) AS n_orders "
+                       "FROM paper_accounts a LEFT JOIN paper_orders o ON o.account = a.id AND o.batch IS NOT ? "
+                       "GROUP BY a.id ORDER BY a.id", con, params=[SWEEP])
 
 
-def set_setting(con, key: str, value) -> None:
-    con.execute("INSERT OR REPLACE INTO paper_account VALUES (?, ?)", [key, str(value)])
+def create_account(con, name: str, cash: float = INITIAL_CASH, sweep: bool = True) -> int:
+    name = name.strip()
+    if not name:
+        raise ValueError("帳戶名稱不能是空的")
+    if con.execute("SELECT 1 FROM paper_accounts WHERE name = ?", [name]).fetchone():
+        raise ValueError(f"已經有叫「{name}」的帳戶")
+    cur = con.execute("INSERT INTO paper_accounts (name, initial_cash, sweep) VALUES (?, ?, ?)",
+                      [name, float(cash), int(sweep)])
+    con.commit()
+    return cur.lastrowid
+
+
+def rename_account(con, acct: int, name: str) -> None:
+    name = name.strip()
+    if not name:
+        raise ValueError("帳戶名稱不能是空的")
+    if con.execute("SELECT 1 FROM paper_accounts WHERE name = ? AND id != ?", [name, acct]).fetchone():
+        raise ValueError(f"已經有叫「{name}」的帳戶")
+    con.execute("UPDATE paper_accounts SET name = ? WHERE id = ?", [name, acct])
     con.commit()
 
 
-def sweep_on(con) -> bool:
-    return setting(con, "sweep", "1") == "1"
+def delete_account(con, acct: int) -> None:
+    """連同委託一起刪掉；至少要留一個帳戶。"""
+    if con.execute("SELECT COUNT(*) FROM paper_accounts").fetchone()[0] <= 1:
+        raise ValueError("至少要留一個帳戶")
+    con.execute("DELETE FROM paper_orders WHERE account = ?", [acct])
+    con.execute("DELETE FROM paper_accounts WHERE id = ?", [acct])
+    con.commit()
+
+
+def setting(con, key: str, default: str = "", acct: int = 1) -> str:
+    if key not in SETTINGS:
+        raise KeyError(key)
+    r = con.execute(f"SELECT {key} FROM paper_accounts WHERE id = ?", [acct]).fetchone()
+    return default if not r or r[0] is None else str(r[0])
+
+
+def set_setting(con, key: str, value, acct: int = 1) -> None:
+    if key not in SETTINGS:
+        raise KeyError(key)
+    con.execute(f"UPDATE paper_accounts SET {key} = ? WHERE id = ?", [value, acct])
+    con.commit()
+
+
+def sweep_on(con, acct: int = 1) -> bool:
+    return setting(con, "sweep", "1", acct) == "1"
+
+
+def initial_cash(con, acct: int = 1) -> float:
+    return float(setting(con, "initial_cash", str(INITIAL_CASH), acct))
 
 
 def _table(code: str) -> str:
     return "etf_prices" if code == ETF else "prices"
 
 
-def initial_cash(con) -> float:
-    return float(con.execute("SELECT value FROM paper_account WHERE key = 'initial_cash'").fetchone()[0])
-
+# ---------------------------------------------------------------- 下單
 
 def place(con, order_date: str, code: str, side: str, shares: int, strategy: str | None = None,
           note: str | None = None, stop: float | None = None, target: float | None = None,
           expire_date: str | None = None, batch: str | None = None, settle_now: bool = True,
-          parent: int | None = None) -> int:
+          parent: int | None = None, acct: int = 1) -> int:
     """stop／target／expire_date 只給賣單：條件賣出，見檔頭。parent 是和這張賣單一起下的買單，
     那張買單沒成交（退單或取消），這張賣單也跟著退，不會去賣到別筆的持股。"""
     if expire_date and side != "sell":
         raise ValueError("條件單只能是賣單")
     cur = con.execute("INSERT INTO paper_orders (order_date, code, side, shares, strategy, note, stop, target, "
-                      "expire_date, batch, parent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                      "expire_date, batch, parent, account) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                       [order_date, code, side, int(shares), strategy, note, stop, target, expire_date, batch,
-                       parent])
+                       parent, acct])
     con.commit()
     if settle_now:
-        settle(con)
+        settle(con, acct)
     return cur.lastrowid
 
 
-def cancel(con, order_id: int) -> bool:
-    n = con.execute("UPDATE paper_orders SET status = 'cancelled' WHERE id = ? AND status = 'pending'",
-                    [order_id]).rowcount
+def cancel(con, order_id: int, acct: int = 1) -> bool:
+    n = con.execute("UPDATE paper_orders SET status = 'cancelled' WHERE id = ? AND account = ? AND status = 'pending'",
+                    [order_id, acct]).rowcount
     con.commit()
     return n > 0
 
 
 def run_strategy(con, strategy: str, start: str, end: str, mode: str = "fixed", codes: list | None = None,
                  top_n: int | None = None, amount: float = 100_000, max_pos: int = 10, opt: dict | None = None,
-                 progress=None) -> dict:
+                 progress=None, acct: int = 1) -> dict:
     """策略自動下單。codes 給個股清單；top_n 改成每天取模型排名前 N 名（只限模型策略）。
     progress(已完成比例, 訊息) 給前端畫進度條。回傳這一批的摘要。"""
     import time
@@ -143,8 +203,8 @@ def run_strategy(con, strategy: str, start: str, end: str, mode: str = "fixed", 
         top = {pd.Timestamp(d): list(g.nlargest(top_n, "pred")[["code", "pred"]].itertuples(index=False))
                for d, g in p.groupby("date")}
     pxs, busy, n_buy = {}, {}, 0
-    if len(days) and not setting(con, "sweep_start"):
-        set_setting(con, "sweep_start", days[0].strftime("%Y-%m-%d"))
+    if len(days) and not setting(con, "sweep_start", acct=acct):
+        set_setting(con, "sweep_start", days[0].strftime("%Y-%m-%d"), acct)
 
     def px_of(code):
         if code not in pxs:
@@ -179,34 +239,35 @@ def run_strategy(con, strategy: str, start: str, end: str, mode: str = "fixed", 
             shares = int(amount // plan["entry_est"])
             if shares < 1:
                 continue
-            bid = place(con, d.strftime("%Y-%m-%d"), code, "buy", shares, tag, note, batch=batch, settle_now=False)
+            kw = dict(batch=batch, settle_now=False, acct=acct)
+            bid = place(con, d.strftime("%Y-%m-%d"), code, "buy", shares, tag, note, **kw)
             stop, tgt = F.exit_levels(plan, mode)
             ex = plan["exit_date"]
             if mode == "fixed":
                 # 出場日前一個交易日收盤後送出，出場日開盤成交
                 place(con, plan["pre_exit"].strftime("%Y-%m-%d"), code, "sell", shares, tag, note,
-                      batch=batch, settle_now=False, parent=bid)
+                      parent=bid, **kw)
                 free = ex
             else:
                 place(con, d.strftime("%Y-%m-%d"), code, "sell", shares, tag, note, stop=stop, target=tgt,
-                      expire_date=ex.strftime("%Y-%m-%d"), batch=batch, settle_now=False, parent=bid)
+                      expire_date=ex.strftime("%Y-%m-%d"), parent=bid, **kw)
                 hit = F.simulate_exit(px, plan["entry_date"], ex, stop, tgt)
                 free = hit[0] if hit else ex
             busy[code] = free
             held += 1
             n_buy += 1
-    settle(con)
+    settle(con, acct)
     if progress:
         progress(1.0, f"完成：{n_buy} 筆進場")
-    sm = batch_summary(con)
+    sm = batch_summary(con, acct)
     sm = sm[sm["批次"] == batch]
     return sm.iloc[0].to_dict() if len(sm) else {"批次": batch, "進場筆數": 0}
 
 
-def batch_summary(con) -> pd.DataFrame:
+def batch_summary(con, acct: int = 1) -> pd.DataFrame:
     """每一批自動下單：筆數、已平倉損益（扣成本）、勝率、還沒出場的筆數。"""
-    od = pd.read_sql("SELECT * FROM paper_orders WHERE batch IS NOT NULL AND batch != ? ORDER BY id", con,
-                     params=[SWEEP])
+    od = pd.read_sql("SELECT * FROM paper_orders WHERE account = ? AND batch IS NOT NULL AND batch != ? ORDER BY id",
+                     con, params=[acct, SWEEP])
     cols = ["批次", "期間", "進場筆數", "已平倉", "持有中", "未成交或退單", "已實現損益", "勝率", "平均每筆"]
     rows = []
     for b, g in od.groupby("batch", sort=False):
@@ -227,19 +288,19 @@ def batch_summary(con) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=cols)
 
 
-def delete_batch(con, batch: str) -> int:
-    n = con.execute("DELETE FROM paper_orders WHERE batch = ?", [batch]).rowcount
+def delete_batch(con, batch: str, acct: int = 1) -> int:
+    n = con.execute("DELETE FROM paper_orders WHERE batch = ? AND account = ?", [batch, acct]).rowcount
     con.commit()
-    settle(con)
+    settle(con, acct)
     return n
 
 
-def reset(con, cash: float = INITIAL_CASH, sweep: bool | None = None) -> None:
-    con.execute("DELETE FROM paper_orders")
-    con.execute("DELETE FROM paper_account WHERE key = 'sweep_start'")
-    con.execute("INSERT OR REPLACE INTO paper_account VALUES ('initial_cash', ?)", [str(float(cash))])
+def reset(con, cash: float = INITIAL_CASH, sweep: bool | None = None, acct: int = 1) -> None:
+    """清空這個帳戶的委託，重設起始資金；其他帳戶不受影響。"""
+    con.execute("DELETE FROM paper_orders WHERE account = ?", [acct])
+    con.execute("UPDATE paper_accounts SET initial_cash = ?, sweep_start = NULL WHERE id = ?", [float(cash), acct])
     if sweep is not None:
-        con.execute("INSERT OR REPLACE INTO paper_account VALUES ('sweep', ?)", ["1" if sweep else "0"])
+        con.execute("UPDATE paper_accounts SET sweep = ? WHERE id = ?", [int(sweep), acct])
     con.commit()
 
 
@@ -248,10 +309,16 @@ def _next_open(con, code: str, after: str):
                        "ORDER BY date LIMIT 1", [code, after]).fetchone()
 
 
-def settle(con) -> int:
-    """把待成交的單依成交日排進帳本，從頭重放現金與持股；錢不夠或股數不夠的退單。回傳新成交筆數。"""
-    con.execute("DELETE FROM paper_orders WHERE batch = ?", [SWEEP])
-    od = pd.read_sql("SELECT * FROM paper_orders WHERE status IN ('pending', 'filled')", con)
+# ---------------------------------------------------------------- 結算
+
+def settle(con, acct: int | None = 1) -> int:
+    """把待成交的單依成交日排進帳本，從頭重放現金與持股；錢不夠或股數不夠的退單。回傳新成交筆數。
+    acct=None 會依序結算所有帳戶。"""
+    if acct is None:
+        return sum(settle(con, int(a)) for a in accounts(con)["id"])
+    con.execute("DELETE FROM paper_orders WHERE batch = ? AND account = ?", [SWEEP, acct])
+    od = pd.read_sql("SELECT * FROM paper_orders WHERE account = ? AND status IN ('pending', 'filled')", con,
+                     params=[acct])
     if od.empty:
         con.commit()
         return 0
@@ -268,9 +335,9 @@ def settle(con) -> int:
     # 同一天先賣後買：賣出的錢當天開盤就能拿去買
     od = od[od["fill_date"].notna()].assign(_b=lambda x: x["side"] == "buy") \
         .sort_values(["fill_date", "_b", "id"])
-    cash, pos, n_new, upd = initial_cash(con), {}, 0, []
-    state = dict(con.execute("SELECT id, status FROM paper_orders"))
-    sweep = sweep_on(con)
+    cash, pos, n_new, upd = initial_cash(con, acct), {}, 0, []
+    state = dict(con.execute("SELECT id, status FROM paper_orders WHERE account = ?", [acct]))
+    sweep = sweep_on(con, acct)
     etf = dict(con.execute("SELECT date, open FROM etf_prices WHERE code = ?", [ETF])) if sweep else {}
     units, swp = 0, []
 
@@ -283,7 +350,7 @@ def settle(con) -> int:
         cash += (-amt - fee) if n > 0 else (amt - fee - tax)
         units += n
         swp.append((day, ETF, "buy" if n > 0 else "sell", abs(n), "sweep", "閒置資金", "filled", day, px,
-                    fee, tax, SWEEP))
+                    fee, tax, SWEEP, acct))
 
     def park(day: str) -> None:
         if sweep and day in etf:
@@ -292,7 +359,7 @@ def settle(con) -> int:
                 etf_trade(day, n)
 
     days = sorted(od["fill_date"].unique())
-    start = setting(con, "sweep_start")
+    start = setting(con, "sweep_start", acct=acct)
     if sweep and start and days and start < days[0] and start in etf:
         park(start)                                # 自動下單的起日就先全部買 0050
     prev = None
@@ -328,7 +395,7 @@ def settle(con) -> int:
     if prev is not None:
         park(prev)
     con.executemany("INSERT INTO paper_orders (order_date, code, side, shares, strategy, note, status, fill_date, "
-                    "fill_price, fee, tax, batch) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", swp)
+                    "fill_price, fee, tax, batch, account) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", swp)
     con.executemany("UPDATE paper_orders SET status = ?, fill_date = ?, fill_price = ?, fee = ?, tax = ?, "
                     "reason = ?, trigger = ? WHERE id = ?", upd)
     con.commit()
@@ -349,14 +416,15 @@ def _conditional(con, r):
     return forecast.simulate_exit(px, nx[0], r["expire_date"], stop, tgt)
 
 
-def orders(con) -> pd.DataFrame:
-    return pd.read_sql("SELECT * FROM paper_orders ORDER BY id DESC", con)
+def orders(con, acct: int = 1) -> pd.DataFrame:
+    return pd.read_sql("SELECT * FROM paper_orders WHERE account = ? ORDER BY id DESC", con, params=[acct])
 
 
-def portfolio(con) -> dict:
+def portfolio(con, acct: int = 1) -> dict:
     """現金、持股（平均成本法）、已實現損益、逐日淨值。持股用 DB 裡最新收盤評價。"""
-    od = pd.read_sql("SELECT * FROM paper_orders WHERE status = 'filled' ORDER BY fill_date, id", con)
-    cash0 = initial_cash(con)
+    od = pd.read_sql("SELECT * FROM paper_orders WHERE account = ? AND status = 'filled' ORDER BY fill_date, id",
+                     con, params=[acct])
+    cash0 = initial_cash(con, acct)
     cash, book, realized = cash0, {}, 0.0
     for r in od.itertuples():
         sh, cost = book.get(r.code, (0, 0.0))
@@ -411,7 +479,10 @@ if __name__ == "__main__":
     import sys
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     con = connect()
-    print(f"新成交 {settle(con)} 筆")
-    p = portfolio(con)
-    print(f"淨值 {p['equity']:,.0f}　現金 {p['cash']:,.0f}　已實現 {p['realized']:+,.0f}　未實現 {p['unrealized']:+,.0f}")
-    print(p["positions"].to_string(index=False))
+    print(f"新成交 {settle(con, None)} 筆")
+    for a in accounts(con).itertuples():
+        p = portfolio(con, a.id)
+        print(f"\n#{a.id} {a.name}：淨值 {p['equity']:,.0f}　現金 {p['cash']:,.0f}　"
+              f"已實現 {p['realized']:+,.0f}　未實現 {p['unrealized']:+,.0f}")
+        if len(p["positions"]):
+            print(p["positions"].to_string(index=False))

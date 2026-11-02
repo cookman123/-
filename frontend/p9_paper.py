@@ -1,4 +1,4 @@
-"""模擬交易：paper_orders 的帳戶總覽、持股、委託紀錄（paper_trade.py 的前端）。"""
+"""模擬交易：多個模擬帳戶的總覽、持股、委託紀錄與策略自動下單（paper_trade.py 的前端）。"""
 import sys
 from pathlib import Path
 
@@ -11,6 +11,7 @@ sys.path[:0] = [str(_HERE), str(_HERE.parent)]
 import common
 import forecast as F
 import paper_trade as P
+import paper_ui
 
 STRATS = list(F.STRATEGIES)
 
@@ -30,7 +31,7 @@ def _cond(od: pd.DataFrame) -> pd.Series:
     return od.apply(one, axis=1)
 
 
-def _auto(con, initial: float) -> None:
+def _auto(con, initial: float, acct: int) -> None:
     """策略自動下單：選策略、出場方式、期間，逐日照訊號下單。"""
     nm = common.names(common.data_sig()).reset_index().sort_values("code")
     labels = (nm["code"] + " " + nm["name"].fillna("")).tolist()
@@ -67,7 +68,7 @@ def _auto(con, initial: float) -> None:
             fresh = st.checkbox("先清空帳戶再跑", value=True,
                                 help="同一個帳戶裡的各批次共用現金，混在一起時後跑的會影響先跑的成交")
         with c2:
-            sweep = st.checkbox("閒置資金買 0050（含息）", value=P.sweep_on(con),
+            sweep = st.checkbox("閒置資金買 0050（含息）", value=P.sweep_on(con, acct),
                                 help="沒有用在個股上的錢一律放 0050；個股要買時賣掉剛好夠的 0050，"
                                      "賣出後立刻買回。賣 0050 付手續費＋ETF 證交稅 0.1%")
         with c3:
@@ -82,15 +83,15 @@ def _auto(con, initial: float) -> None:
         st.error("請至少選一檔個股。")
         return
     if fresh:
-        P.reset(con, cash, sweep=sweep)
+        P.reset(con, cash, sweep=sweep, acct=acct)
     else:
-        P.set_setting(con, "sweep", "1" if sweep else "0")
+        P.set_setting(con, "sweep", int(sweep), acct)
     bar = st.progress(0.0, "準備中…")
     try:
         r = P.run_strategy(con, key, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"), mode,
                            codes=[l.split()[0] for l in picks] if scope == "codes" else None,
                            top_n=int(top_n) if scope == "top" else None, amount=float(amount),
-                           max_pos=int(max_pos), progress=lambda f, m: bar.progress(min(f, 1.0), m))
+                           max_pos=int(max_pos), progress=lambda f, m: bar.progress(min(f, 1.0), m), acct=acct)
     except ValueError as e:
         st.error(str(e))
         return
@@ -98,8 +99,8 @@ def _auto(con, initial: float) -> None:
     st.rerun()
 
 
-def _batches(con) -> None:
-    b = P.batch_summary(con)
+def _batches(con, acct: int) -> None:
+    b = P.batch_summary(con, acct)
     if b.empty:
         return
     st.subheader("自動下單批次")
@@ -113,8 +114,66 @@ def _batches(con) -> None:
     with c2:
         st.write("")
         if st.button("刪除這批"):
-            P.delete_batch(con, sel)
+            P.delete_batch(con, sel, acct)
             st.rerun()
+
+
+def _bar(con) -> int:
+    """帳戶選單＋新增帳戶。"""
+    c1, c2, c3 = st.columns([2.2, 1, 3])
+    with c1:
+        acct = paper_ui.pick(con, "paper")
+    with c2:
+        st.write("")
+        with st.popover("新增帳戶", icon=":material/person_add:"):
+            with st.form("new_acct", border=False):
+                name = st.text_input("帳戶名稱", placeholder="例如：小明、5 日模型測試")
+                cash = st.number_input("起始資金", 10_000, 1_000_000_000, P.INITIAL_CASH, step=100_000)
+                sweep = st.checkbox("閒置資金買 0050（含息）", value=True)
+                if st.form_submit_button("建立", type="primary"):
+                    try:
+                        st.session_state["paper_acct"] = P.create_account(con, name, cash, sweep)
+                        st.rerun()
+                    except ValueError as e:
+                        st.error(str(e))
+    with c3:
+        st.caption("每個帳戶的現金、持股、委託和自動下單批次都分開算。"
+                   "多台電腦連進來時，各自選自己的帳戶就不會互相影響。")
+    return acct
+
+
+def _manage(con, acct: int, p: dict) -> None:
+    """改名、重設、刪除這個帳戶。"""
+    name = P.accounts(con).set_index("id").loc[acct, "name"]
+    with st.expander(f"管理帳戶「{name}」"):
+        c1, c2 = st.columns([3, 1])
+        with c1:
+            new = st.text_input("改名", value=name, key=f"rename_{acct}")
+        with c2:
+            st.write("")
+            if st.button("儲存名稱", key=f"rename_btn_{acct}", disabled=new.strip() == name):
+                try:
+                    P.rename_account(con, acct, new)
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
+        st.markdown("**重設**：清除這個帳戶的所有委託，其他帳戶不受影響")
+        cash = st.number_input("起始資金", min_value=10_000, value=int(p["initial"]), step=100_000,
+                               key=f"reset_cash_{acct}")
+        sw = st.checkbox("閒置資金買 0050（含息）", value=P.sweep_on(con, acct), key=f"reset_sweep_{acct}")
+        sure = st.checkbox("確定清除這個帳戶的所有模擬委託", key=f"reset_sure_{acct}")
+        if st.button("重設", disabled=not sure, key=f"reset_btn_{acct}"):
+            P.reset(con, cash, sweep=sw, acct=acct)
+            st.rerun()
+        st.markdown("**刪除帳戶**：帳戶和它的委託一起刪掉")
+        sure_del = st.checkbox(f"確定刪除「{name}」", key=f"del_sure_{acct}")
+        if st.button("刪除帳戶", disabled=not sure_del, key=f"del_btn_{acct}"):
+            try:
+                P.delete_account(con, acct)
+                st.session_state.pop("paper_acct", None)
+                st.rerun()
+            except ValueError as e:
+                st.error(str(e))
 
 
 def main():
@@ -123,10 +182,11 @@ def main():
         common.empty("還沒有 db/local.db，先跑 python build_local_db.py。")
         return
     con = P.connect()
-    n = P.settle(con)
+    acct = _bar(con)
+    n = P.settle(con, acct)
     if n:
         st.toast(f"新成交 {n} 筆")
-    p = P.portfolio(con)
+    p = P.portfolio(con, acct)
     names = pd.concat([common.names(common.data_sig())["name"], pd.Series({P.ETF: "元大台灣50（含息還原價）"})])
     ret = p["equity"] / p["initial"] - 1
     c = p["curve"]
@@ -151,18 +211,18 @@ def main():
         common.chart(common.line_fig(c.index, {"淨值": c, "全部買 0050 抱著（含息、同起點）": bench},
                                      "逐日淨值（收盤評價）",
                                      colors={"淨值": common.C_STRAT, "全部買 0050 抱著（含息、同起點）": common.C_POOL}))
-        st.caption(f"閒置資金買 0050：{'開' if P.sweep_on(con) else '關'}。對照線是同一筆錢第一天全部買 0050 一路抱著"
+        st.caption(f"閒置資金買 0050：{'開' if P.sweep_on(con, acct) else '關'}。對照線是同一筆錢第一天全部買 0050 一路抱著"
                    "（研究 14.8 的投資人 A）；開著的話，帳戶就是投資人 B。")
 
     done = st.session_state.pop("auto_done", None)
     if done:
         st.success(f"自動下單完成：{done['批次']}，進場 {done.get('進場筆數', 0)} 筆，"
                    f"已實現損益 {done.get('已實現損益', 0):+,.0f}。")
-    with st.expander("策略自動下單", expanded=P.orders(con).empty):
+    with st.expander("策略自動下單", expanded=P.orders(con, acct).empty):
         st.caption("從起日到迄日逐個交易日，每天只用當天收盤以前的資料判斷有沒有進場訊號（和「個股預測」頁同一套），"
                    "有就在當天收盤後下買單、隔天開盤成交，再照出場方式掛賣單。同一檔持有中不重複進場。")
-        _auto(con, p["initial"])
-    _batches(con)
+        _auto(con, p["initial"], acct)
+    _batches(con, acct)
 
     st.subheader("持股")
     pos = p["positions"]
@@ -178,7 +238,7 @@ def main():
                                    signed=["未實現", "報酬率"]), hide_index=True)
 
     st.subheader("委託紀錄")
-    od = P.orders(con)
+    od = P.orders(con, acct)
     n_sw = int((od["batch"] == P.SWEEP).sum())
     if n_sw and not st.toggle(f"顯示閒置資金買賣 0050 的系統單（{n_sw} 筆）", value=False):
         od = od[od["batch"] != P.SWEEP]
@@ -203,17 +263,11 @@ def main():
             with c2:
                 st.write("")
                 if st.button("取消這筆"):
-                    P.cancel(con, int(oid))
+                    P.cancel(con, int(oid), acct)
                     st.rerun()
             st.caption("待成交：下單日之後還沒有開盤價（例如預約的出場日還沒到）。股價更新後重新整理就會成交。")
 
-    with st.expander("重設帳戶"):
-        cash = st.number_input("起始資金", min_value=10_000, value=int(p["initial"]), step=100_000)
-        sw = st.checkbox("閒置資金買 0050（含息）", value=P.sweep_on(con), key="reset_sweep")
-        sure = st.checkbox("確定清除所有模擬委託")
-        if st.button("重設", disabled=not sure):
-            P.reset(con, cash, sweep=sw)
-            st.rerun()
+    _manage(con, acct, p)
     st.markdown(f'<div class="disc">{common.esc(common.DISCLAIMER)} 沒有模擬每筆最低手續費、'
                 '漲跌停買不到賣不掉與滑價。</div>', unsafe_allow_html=True)
 

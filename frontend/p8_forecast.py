@@ -14,6 +14,7 @@ sys.path[:0] = [str(_HERE), str(_HERE.parent)]
 import common
 import forecast as F
 import paper_trade as P
+import paper_ui
 
 KEYS = list(F.STRATEGIES)
 NAMES = {k: v["name"] for k, v in F.STRATEGIES.items()}
@@ -216,7 +217,8 @@ def _analog(r: dict, nm: pd.DataFrame) -> None:
 def _order(r: dict, nm: pd.DataFrame, mode: str) -> None:
     st.subheader("模擬下單")
     con = P.connect()
-    held = P.portfolio(con)["positions"]
+    acct = paper_ui.pick(con, "forecast", "下單到哪個模擬帳戶")
+    held = P.portfolio(con, acct)["positions"]
     have = int(held.loc[held["code"] == r["code"], "shares"].sum())
     p = r["plan"]
     st.caption(f"視角日期 {r['asof']:%Y-%m-%d} 收盤後下單、下一個交易日開盤成交。目前模擬帳戶持有這檔 {have:,} 股。")
@@ -236,22 +238,22 @@ def _order(r: dict, nm: pd.DataFrame, mode: str) -> None:
         ok = st.form_submit_button("送出模擬單", type="primary")
     if ok:
         oid = P.place(con, r["asof"].strftime("%Y-%m-%d"), r["code"], side, int(shares), r["strategy"],
-                      f"{r['name']}：{r['direction']}")
+                      f"{r['name']}：{r['direction']}", acct=acct)
         msg = [f"#{oid} {'買進' if side == 'buy' else '賣出'} {int(shares):,} 股"]
         if side == "buy" and auto_exit and p and p["enter"]:
             if mode == "fixed":
                 pre = r["dates"][p["exit_t"] - 1].strftime("%Y-%m-%d")
                 oid2 = P.place(con, pre, r["code"], "sell", int(shares), r["strategy"], "照建議出場日預約賣出",
-                               parent=oid)
+                               parent=oid, acct=acct)
                 msg.append(f"#{oid2} 預約 {p['exit_date']:%Y-%m-%d} 開盤賣出")
             else:
                 stop, tgt = F.exit_levels(p, mode)
                 oid2 = P.place(con, r["asof"].strftime("%Y-%m-%d"), r["code"], "sell", int(shares), r["strategy"],
                                F.EXIT_MODES[mode], stop=stop, target=tgt,
-                               expire_date=p["exit_date"].strftime("%Y-%m-%d"), parent=oid)
+                               expire_date=p["exit_date"].strftime("%Y-%m-%d"), parent=oid, acct=acct)
                 lv = "、".join(f"{n} {v:.2f}" for n, v in (("停損", stop), ("目標", tgt)) if v is not None)
                 msg.append(f"#{oid2} 條件賣出（{lv}，最晚 {p['exit_date']:%Y-%m-%d} 開盤）")
-        od = P.orders(con).set_index("id")
+        od = P.orders(con, acct).set_index("id")
         st.success("已送出：" + "；".join(f"{m}（{P.STATUS[od.loc[i, 'status']]}）"
                                        for m, i in zip(msg, [oid] + ([oid2] if len(msg) > 1 else []))))
         bad = od.loc[[oid], "reason"].dropna()
