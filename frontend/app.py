@@ -23,6 +23,9 @@ page = st.navigation([
     st.Page("p4_revenue.py", title="營收研究", icon=":material/insights:", url_path="revenue"),
     st.Page("p6_sectors.py", title="產業", icon=":material/category:", url_path="sectors"),
     st.Page("p5_findings.py", title="研究結論", icon=":material/menu_book:", url_path="findings"),
+    st.Page("p8_forecast.py", title="個股預測", icon=":material/timeline:", url_path="forecast"),
+    st.Page("p9_paper.py", title="模擬交易", icon=":material/account_balance_wallet:", url_path="paper"),
+    st.Page("p7_ask.py", title="地端問答", icon=":material/forum:", url_path="ask"),
 ], position="top")
 common.header()
 page.run()

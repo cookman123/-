@@ -1,0 +1,78 @@
+存活 383 檔＋下市 126 檔
+C:\Users\典典\Desktop\畢業專題\nextday_horizon.py:100: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df[f"y_h{h}"] = lab.reindex(df.index).astype("float32")
+C:\Users\典典\Desktop\畢業專題\nextday_horizon.py:100: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df[f"y_h{h}"] = lab.reindex(df.index).astype("float32")
+C:\Users\典典\Desktop\畢業專題\nextday_horizon.py:100: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+  df[f"y_h{h}"] = lab.reindex(df.index).astype("float32")
+標籤 h=1 與 y_oo 最大差 0.00e+00（應為 0）
+
+【h = 1】walk-forward（purge 2 日）
+    y_h1　2014-04 ~ 2015-05　訓練 248,360
+    y_h1　2015-05 ~ 2016-05　訓練 311,326
+    y_h1　2016-05 ~ 2017-06　訓練 374,274
+    y_h1　2017-06 ~ 2018-06　訓練 437,192
+    y_h1　2018-06 ~ 2019-06　訓練 500,135
+    y_h1　2019-06 ~ 2020-07　訓練 563,070
+    y_h1　2020-07 ~ 2021-07　訓練 626,020
+    y_h1　2021-07 ~ 2022-08　訓練 688,986
+    y_h1　2022-08 ~ 2023-08　訓練 751,427
+    y_h1　2023-08 ~ 2024-08　訓練 814,397
+    y_h1　2024-08 ~ 2025-09　訓練 877,338
+    y_h1　2025-09 ~ 2026-09　訓練 939,563
+    y_h1　2026-09 ~ 2026-11　訓練 1,002,337
+  IC（自己的 1 日標籤）+0.0687　IC（隔日報酬）+0.0687
+  n=10 m=1　換手 0.73　扣成本 -4.58%　beta 1.12　對沖後 -17.62%（t -2.36；前半 -0.85、後半 -2.37）
+  n=10 m=5　換手 0.50　扣成本 +7.14%　beta 1.13　對沖後 -8.41%（t -0.80；前半 0.36、後半 -1.38）
+  n=30 m=1　換手 0.70　扣成本 -14.07%　beta 1.04　對沖後 -25.73%（t -5.65；前半 -4.56、後半 -3.54）
+  n=30 m=5　換手 0.29　扣成本 +12.87%　beta 1.00　對沖後 -1.49%（t 0.05；前半 0.60、後半 -0.42）
+
+【h = 5】walk-forward（purge 6 日）
+    y_h5　2014-04 ~ 2015-05　訓練 246,792
+    y_h5　2015-05 ~ 2016-05　訓練 309,718
+    y_h5　2016-05 ~ 2017-06　訓練 372,621
+    y_h5　2017-06 ~ 2018-06　訓練 435,484
+    y_h5　2018-06 ~ 2019-06　訓練 498,380
+    y_h5　2019-06 ~ 2020-07　訓練 561,257
+    y_h5　2020-07 ~ 2021-07　訓練 624,167
+    y_h5　2021-07 ~ 2022-08　訓練 687,097
+    y_h5　2022-08 ~ 2023-08　訓練 749,520
+    y_h5　2023-08 ~ 2024-08　訓練 812,448
+    y_h5　2024-08 ~ 2025-09　訓練 875,377
+    y_h5　2025-09 ~ 2026-09　訓練 937,588
+    y_h5　2026-09 ~ 2026-11　訓練 1,000,338
+  IC（自己的 5 日標籤）+0.0497　IC（隔日報酬）+0.0411
+  n=10 m=1　換手 0.45　扣成本 +6.50%　beta 1.22　對沖後 -9.20%（t -0.72；前半 0.26、後半 -1.12）
+  n=10 m=5　換手 0.17　扣成本 +21.81%　beta 1.23　對沖後 +2.69%（t 0.93；前半 1.31、後半 0.13）
+  n=30 m=1　換手 0.43　扣成本 +0.52%　beta 1.10　對沖後 -13.54%（t -2.40；前半 -2.01、後半 -1.45）
+  n=30 m=5　換手 0.09　扣成本 +27.04%　beta 1.09　對沖後 +10.07%（t 2.37；前半 1.95、後半 1.46）
+
+【h = 20】walk-forward（purge 21 日）
+    y_h20　2014-04 ~ 2015-05　訓練 242,721
+    y_h20　2015-05 ~ 2016-05　訓練 305,576
+    y_h20　2016-05 ~ 2017-06　訓練 368,402
+    y_h20　2017-06 ~ 2018-06　訓練 431,175
+    y_h20　2018-06 ~ 2019-06　訓練 493,978
+    y_h20　2019-06 ~ 2020-07　訓練 556,748
+    y_h20　2020-07 ~ 2021-07　訓練 619,607
+    y_h20　2021-07 ~ 2022-08　訓練 682,453
+    y_h20　2022-08 ~ 2023-08　訓練 744,823
+    y_h20　2023-08 ~ 2024-08　訓練 807,723
+    y_h20　2024-08 ~ 2025-09　訓練 870,628
+    y_h20　2025-09 ~ 2026-09　訓練 932,831
+    y_h20　2026-09 ~ 2026-11　訓練 995,522
+  IC（自己的 20 日標籤）+0.0440　IC（隔日報酬）+0.0149
+  n=10 m=1　換手 0.29　扣成本 +6.27%　beta 1.23　對沖後 -9.13%（t -0.83；前半 -1.56、後半 0.22）
+  n=10 m=5　換手 0.07　扣成本 +31.51%　beta 1.22　對沖後 +12.35%（t 2.19；前半 1.32、後半 1.73）
+  n=30 m=1　換手 0.27　扣成本 +3.49%　beta 1.12　對沖後 -10.41%（t -1.82；前半 -2.27、後半 -0.60）
+  n=30 m=5　換手 0.04　扣成本 +24.61%　beta 1.12　對沖後 +8.61%（t 2.16；前半 1.23、後半 1.75）
+
+==========================================================================================
+多重比較：12 組對沖後報酬，2792 日
+==========================================================================================
+  最佳 h5_n30_m5　RC p = 0.0510　SPA p = 0.0360
+
+判讀
+  對沖後 t > 1.96 的有 3/12 組；RC 與 SPA 都要 < 0.05 才算有可交易的 alpha。
+
+輸出：C:\Users\典典\Desktop\畢業專題\results\nextday\horizon_surv.csv

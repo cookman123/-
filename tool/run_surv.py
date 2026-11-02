@@ -31,6 +31,11 @@ ALIVE = sorted(x.name for x in (ROOT / "data" / "stocks").iterdir()
                if x.is_dir() and any((x / "price").glob("*.csv")))
 DEAD = sorted(f.stem for f in DEL.glob("[0-9]*.csv") if f.stem not in set(ALIVE))
 _load_price = T.load_price
+# 下市股的來源有少數週六補班日、假日的列（存活股與加權指數都沒有這幾天）。
+# 留著會讓面板多出只有幾十檔的「交易日」，大盤報酬在那天是缺值，
+# 滾動 250 日 beta 跟著缺 250 天，對沖後的檢定期間被砍掉將近一半
+_CAL = pd.DatetimeIndex(pd.read_csv(ROOT / "data" / "market" / "TWII.csv", usecols=["date"],
+                                    parse_dates=["date"])["date"]).unique()
 
 
 def load_price(code: str):
@@ -40,7 +45,8 @@ def load_price(code: str):
     px = px.dropna(subset=["date", "close"]).sort_values("date") \
         .drop_duplicates("date", keep="last").set_index("date")
     flat = (px["volume"] <= 0) & (px["open"] == px["close"]) & (px["high"] == px["low"])
-    return px.loc[~flat, ["open", "high", "low", "close", "volume"]]
+    px = px.loc[~flat & px.index.isin(_CAL), ["open", "high", "low", "close", "volume"]]
+    return px
 
 
 def load_panels(start: str, end: str, quiet: bool = False) -> dict:

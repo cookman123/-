@@ -23,6 +23,7 @@
 """
 from __future__ import annotations
 
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -51,7 +52,20 @@ SYSTEM = """你是台股量化研究的助理，使用繁體中文回答。
 3. 買賣與否以研究裡的數字規則為準（RAG 規則分數與門檻、策略規格、邏輯檢驗），
    你只負責說明規則怎麼判斷、理由是什麼，不要自己給出買賣建議。
 4. 研究結論若說某個效應不顯著或只是候選，要照實講，不要說得比資料更樂觀。
+   模型預測、相似走勢與建議進出場點都要連同它的研究結論與回測紀錄一起講。
 5. 結尾提醒：這是研究規則的輸出，不是投資建議。"""
+
+# 每次都附上的規則定義。實測時模型把「出場日早於今天 − 30 天」讀成「最近 30 天內」，
+# 所以把容易誤讀的地方用白話寫死，放在資料最前面
+RULE_FACTS = [
+    "規則定義：RAG 相似事件排除規則（候選，未採用）。檢索庫是從 2011 年起的全部歷史跌深事件，"
+    "只排除出場日在最近 30 天內、答案還沒揭曉的事件；範圍是整段歷史，不是只看最近 30 天。"
+    "在檢索庫裡找特徵最像的 20 個事件，分數＝它們淨報酬的距離加權平均；"
+    "分數低於過去 365 天所有事件分數的第 20 百分位就不做。",
+    "規則定義：週期性邏輯檢驗。每 42 個交易日檢查一次策略減大盤的 42 天累積超額；"
+    "低於歷史第 5 百分位為「注意」，連續兩期低於第 10 百分位或近一年超額顯著變差為「顯著」，"
+    "顯著時先查原因，不自動換股。",
+]
 
 
 def retrieve(con, question: str, asof: str, k: int, code: str | None,
@@ -79,7 +93,9 @@ def retrieve(con, question: str, asof: str, k: int, code: str | None,
     if code:
         kb.loc[kb["code"] == code, "sim"] += 0.05      # 同一檔的過去事件稍微優先
     # 文件與事件各取一半，避免一萬多張事件卡把規則文件擠掉
-    docs = kb[kb["kind"] == "doc"].nlargest(k - k // 2, "sim")
+    # 每份文件最多 2 段：問題同時問兩件事時，不會讓同一份文件佔滿名額（實測發生過）
+    docs = (kb[kb["kind"] == "doc"].sort_values("sim", ascending=False)
+            .groupby("source").head(2).head(k - k // 2))
     evs = kb[kb["kind"] == "event"].nlargest(k // 2, "sim")
     return pd.concat([docs, evs]).sort_values("sim", ascending=False)
 
@@ -110,8 +126,14 @@ def stock_context(con, code: str, asof: str) -> list:
     news = con.execute(
         "SELECT n.ts, n.title FROM news n JOIN news_stock s USING (news_id) "
         "WHERE s.code = ? AND n.ts < ? ORDER BY n.ts DESC LIMIT 8", [code, asof]).fetchall()
-    if news:
-        out.append(f"{name} 最近的新聞標題：" + "；".join(f"{t[:10]} {h}" for t, h in news))
+    # 每則新聞各自一個出處編號；併成一項時模型會編出不存在的編號
+    out += [f"{name} 的新聞（{t[:10]}）：{h}" for t, h in news]
+    # 各策略的預測、方向與建議進出場點（forecast.py，和前端「個股預測」頁同一套）
+    try:
+        import forecast
+        out += forecast.summary_lines(con, code, asof)
+    except Exception as e:                               # 舊 DB 沒有 predictions 表等
+        out.append(f"{name} 的模型預測無法取得（{type(e).__name__}）。")
     pk = con.execute("SELECT asof, rank, action FROM picks WHERE code = ?", [code]).fetchone()
     if pk:
         out.append(f"{name} 在高波動策略最新清單（{pk[0]}）排第 {pk[1]}，動作：{pk[2]}。")
@@ -127,12 +149,90 @@ def strategy_context(con, asof: str) -> list:
             f"歷史第 {sg[2]:.0%} 百分位，結論「{sg[3]}」。"]
 
 
-def build_prompt(question: str, ctx: list, hits: pd.DataFrame) -> str:
-    items = ctx + [f"（{h.kind}｜{h.source}"
-                   + (f"｜{h.known_at} 揭曉" if isinstance(h.known_at, str) else "")
-                   + f"）{h.text}" for h in hits.itertuples()]
+def build_prompt(question: str, ctx: list, hits: pd.DataFrame) -> tuple:
+    """回傳（prompt, 資料項清單），清單的順序就是出處編號，用來檢查與顯示出處。"""
+    items = RULE_FACTS + ctx + [f"（{h.kind}｜{h.source}"
+                                + (f"｜{h.known_at} 揭曉" if isinstance(h.known_at, str) else "")
+                                + f"）{h.text}" for h in hits.itertuples()]
     data = "\n\n".join(f"[{i}] {t}" for i, t in enumerate(items, 1))
-    return f"資料：\n{data}\n\n問題：{question}"
+    return (f"資料（共 {len(items)} 項，出處編號只能是 1 到 {len(items)}）：\n{data}"
+            f"\n\n問題：{question}"), items
+
+
+def bad_citations(answer: str, n: int) -> list:
+    return sorted({int(x) for x in re.findall(r"\[(\d+)\]", answer) if not 1 <= int(x) <= n})
+
+
+def chat(model: str, messages: list) -> str:
+    import requests
+
+    r = requests.post(f"{OLLAMA}/api/chat", timeout=600, json={
+        "model": model, "stream": False,
+        "options": {"temperature": 0.2, "num_ctx": NUM_CTX}, "messages": messages})
+    if r.status_code == 404:
+        raise SystemExit(f"找不到模型 {model}，請先執行：ollama pull {model}")
+    r.raise_for_status()
+    return r.json()["message"]["content"]
+
+
+def health(db: str | Path = DB, model: str = CHAT_MODEL) -> list:
+    """前端顯示用：缺什麼就回傳一行說明，全部就緒回傳空清單。"""
+    import requests
+
+    problems = []
+    if not Path(db).exists():
+        problems.append("找不到 db/local.db，請先執行 python build_local_db.py")
+    else:
+        con = sqlite3.connect(db)
+        if not con.execute("SELECT name FROM sqlite_master WHERE name = 'kb_chunks'").fetchone():
+            problems.append("知識庫還沒建立，請執行 python build_kb.py")
+        con.close()
+    try:
+        tags = requests.get(f"{OLLAMA}/api/tags", timeout=3).json()
+        have = {m["name"] for m in tags.get("models", [])}
+        for m in (model, "embeddinggemma:latest"):
+            if m not in have:
+                problems.append(f"Ollama 沒有模型 {m}，請執行 ollama pull {m.split(':latest')[0]}")
+    except Exception:
+        problems.append("連不到 Ollama（http://localhost:11434），請先開啟 Ollama")
+    return problems
+
+
+def ask(question: str, code: str | None = None, asof: str | None = None, k: int = 8,
+        model: str = CHAT_MODEL, embed_model: str | None = None, db: str | Path = DB,
+        dry_run: bool = False) -> dict:
+    """
+    命令列與前端共用的問答流程。回傳：
+      answer  回答（dry_run 時是送給模型的完整內容）
+      items   資料項清單，第 i 項就是出處 [i+1]
+      bad     回答裡仍不存在的出處編號
+      n_rule / n_ctx / n_hits  各類資料的項數
+    """
+    asof = asof or pd.Timestamp.today().strftime("%Y-%m-%d")
+    con = sqlite3.connect(db)
+    em = embed_model or (con.execute(
+        "SELECT value FROM meta WHERE key = 'kb.embed_model'").fetchone() or ["embeddinggemma"])[0]
+    hits = retrieve(con, question, asof, k, code, em or "embeddinggemma")
+    ctx = strategy_context(con, asof) + (stock_context(con, code, asof) if code else [])
+    prompt, items = build_prompt(question, ctx, hits)
+    con.close()
+    out = {"items": items, "bad": [], "asof": asof,
+           "n_rule": len(RULE_FACTS), "n_ctx": len(ctx), "n_hits": len(hits)}
+    if dry_run:
+        return out | {"answer": f"[system]\n{SYSTEM}\n\n[user]\n{prompt}"}
+
+    msgs = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]
+    answer = chat(model, msgs)
+    bad = bad_citations(answer, len(items))
+    if bad:
+        # 編出不存在的出處：指出錯誤要它重寫一次；還是錯就照實標示，不默默刪掉
+        msgs += [{"role": "assistant", "content": answer},
+                 {"role": "user", "content":
+                  f"你引用了不存在的出處 {', '.join(f'[{b}]' for b in bad)}，資料只有 1 到 "
+                  f"{len(items)} 項。請找出這些內容實際對應的編號後重新回答；找不到出處的句子請刪除。"}]
+        answer = chat(model, msgs)
+        bad = bad_citations(answer, len(items))
+    return out | {"answer": answer, "bad": bad}
 
 
 def main(argv=None) -> int:
@@ -150,31 +250,14 @@ def main(argv=None) -> int:
     ap.add_argument("--dry-run", action="store_true", help="只印出送給模型的內容")
     a = ap.parse_args(argv)
 
-    con = sqlite3.connect(a.db)
-    em = a.embed_model or (con.execute(
-        "SELECT value FROM meta WHERE key = 'kb.embed_model'").fetchone() or ["embeddinggemma"])[0]
-    hits = retrieve(con, a.question, a.asof, a.k, a.code, em or "embeddinggemma")
-    ctx = strategy_context(con, a.asof) + (stock_context(con, a.code, a.asof) if a.code else [])
-    prompt = build_prompt(a.question, ctx, hits)
-    con.close()
-
+    r = ask(a.question, a.code, a.asof, a.k, a.model, a.embed_model, a.db, a.dry_run)
+    print(r["answer"])
     if a.dry_run:
-        print(f"[system]\n{SYSTEM}\n\n[user]\n{prompt}")
         return 0
-
-    import requests
-
-    r = requests.post(f"{OLLAMA}/api/chat", timeout=600, json={
-        "model": a.model, "stream": False,
-        "options": {"temperature": 0.2, "num_ctx": NUM_CTX},
-        "messages": [{"role": "system", "content": SYSTEM},
-                     {"role": "user", "content": prompt}]})
-    if r.status_code == 404:
-        print(f"找不到模型 {a.model}，請先執行：ollama pull {a.model}")
-        return 1
-    r.raise_for_status()
-    print(r.json()["message"]["content"])
-    print(f"\n—— 出處：{len(ctx)} 項結構化資料＋{len(hits)} 段檢索（視角 {a.asof}）")
+    if r["bad"]:
+        print(f"\n⚠ 回答仍引用不存在的出處 {', '.join(f'[{b}]' for b in r['bad'])}，這些句子請勿採信。")
+    print(f"\n—— 出處：{r['n_rule']} 項規則定義＋{r['n_ctx']} 項結構化資料＋"
+          f"{r['n_hits']} 段檢索，共 {len(r['items'])} 項（視角 {r['asof']}）")
     return 0
 
 

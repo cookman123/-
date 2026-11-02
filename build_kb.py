@@ -170,10 +170,22 @@ def main(argv=None) -> int:
     df = pd.DataFrame(chunks)
     df["embedding"] = None
     if not a.no_embed:
-        t0 = time.time()
-        V = embed([doc_prefix(a.embed_model) + t for t in df["text"]], a.embed_model)
-        df["embedding"] = [v.tobytes() for v in V]
-        print(f"  向量 {V.shape[1]} 維，{time.time() - t0:.0f} 秒")
+        # 同一個向量模型、同一段文字就沿用舊向量，只重算新增或改過的段落
+        old = {}
+        prev = con.execute("SELECT value FROM meta WHERE key = 'kb.embed_model'").fetchone() \
+            if con.execute("SELECT name FROM sqlite_master WHERE name = 'meta'").fetchone() else None
+        if prev and prev[0] == a.embed_model and con.execute(
+                "SELECT name FROM sqlite_master WHERE name = 'kb_chunks'").fetchone():
+            old = {(i, t): e for i, t, e in con.execute(
+                "SELECT id, text, embedding FROM kb_chunks WHERE embedding IS NOT NULL")}
+        df["embedding"] = [old.get((i, t)) for i, t in zip(df["id"], df["text"])]
+        todo = df["embedding"].isna()
+        print(f"  沿用舊向量 {int((~todo).sum()):,} 段，重算 {int(todo.sum()):,} 段")
+        if todo.any():
+            t0 = time.time()
+            V = embed([doc_prefix(a.embed_model) + t for t in df.loc[todo, "text"]], a.embed_model)
+            df.loc[todo, "embedding"] = pd.Series([v.tobytes() for v in V], index=df.index[todo])
+            print(f"  向量 {V.shape[1]} 維，{time.time() - t0:.0f} 秒")
 
     con.execute("DROP TABLE IF EXISTS kb_chunks")
     con.execute("""CREATE TABLE kb_chunks (id TEXT PRIMARY KEY, kind TEXT, source TEXT,

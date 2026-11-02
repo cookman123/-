@@ -78,6 +78,10 @@ DESCRIPTIONS = {
     "significance": "週期性邏輯檢驗（每 42 交易日）；level 正常／注意／顯著",
     "picks": "最新一次換倉清單（規則輸出，不是投資建議）",
     "ops_log": "每日操作回寫：date、code、action（buy/sell/skip）、rule、score、note",
+    "etf_prices": "0050 含息還原價（Yahoo 價格已處理分割，再乘上證交所除息資料的累積股利因子）；"
+                  "模擬交易「閒置資金買 0050」用，和 reversal_two_investors.py 的 0050 同一個算法",
+    "predictions": "價量模型的 walk-forward 預測（含下市股版本）：date 收盤後才知道；"
+                   "h 是標籤天數（1／5／20），標籤＝開盤(t+1+h)÷開盤(t+1)−1；pctile 是當天全市場排名百分位",
 }
 
 
@@ -128,11 +132,14 @@ def build_prices(con) -> int:
         p = px.reset_index()
         p["code"], p["is_delisted"] = code, 0
         parts.append(p)
+    # 下市股來源有少數週六補班日、假日的列，加權指數沒有這幾天；和 tool/run_surv.py 一樣濾掉
+    cal = set(_d(pd.read_csv(DATA / "market" / "TWII.csv", usecols=["date"])["date"]))
     for f in sorted((DATA / "delisted" / "price_adj").glob("*.csv")):
         if f.stem.startswith("_"):            # _events.csv 是除權息事件紀錄，不是股價
             continue
         p = pd.read_csv(f, encoding="utf-8-sig")
         p["code"], p["is_delisted"] = f.stem, 1
+        p = p[_d(p["date"]).isin(cal)]
         parts.append(p[["date", "open", "high", "low", "close", "volume", "code", "is_delisted"]])
     df = pd.concat(parts, ignore_index=True)
     df["date"] = _d(df["date"])
@@ -291,6 +298,42 @@ def build_research(con) -> int:
     return n
 
 
+def build_etf(con) -> int:
+    """0050 含息還原價：除息日起的價格乘上 (1 + 現金殖利率) 的累積值，持有就等於股利再投入。"""
+    import reversal_two_investors as R
+    b = pd.read_csv(DATA / "market" / "0050.csv", parse_dates=["date"]).set_index("date").sort_index()
+    b = b[~b.index.duplicated(keep="last")]
+    _, dy = R.etf_total_return()
+    i = b.index.searchsorted(dy.index)
+    ok = i < len(b)
+    step = pd.Series(1 + dy.values[ok], index=b.index[i[ok]]).groupby(level=0).prod()
+    fac = step.reindex(b.index, fill_value=1.0).cumprod()
+    out = b[["open", "high", "low", "close"]].mul(fac, axis=0)
+    out["volume"] = b["volume"]
+    out = out.reset_index()
+    out["date"] = _d(out["date"])
+    out.insert(0, "code", "0050")
+    return _write(con, "etf_prices", out, pk=["code", "date"])
+
+
+def build_predictions(con) -> int:
+    """nextday_horizon.py 的 1／5／20 日預測（含下市股的稽核版）。模型是排序模型，看 pctile 比看 pred 準。"""
+    parts = []
+    for h in (1, 5, 20):
+        f = RES / "nextday" / f"pred_h{h}_surv.csv"
+        if not f.exists():
+            continue
+        p = pd.read_csv(f, dtype={"code": str}, encoding="utf-8-sig")
+        p["date"] = _d(p["date"])
+        p.insert(2, "h", h)
+        p["pctile"] = p.groupby("date")["pred"].rank(pct=True).astype("float32")
+        parts.append(p)
+    if not parts:
+        return 0
+    return _write(con, "predictions", pd.concat(parts, ignore_index=True),
+                  pk=["code", "h", "date"], index=["date"])
+
+
 def build_ops_log(con) -> int:
     """流程圖最後一步的回寫表；已存在就保留（裡面是實際操作紀錄，不能重建）。"""
     con.execute("""CREATE TABLE IF NOT EXISTS ops_log (
@@ -305,7 +348,8 @@ def build_ops_log(con) -> int:
 BUILDERS = {
     "stocks": build_stocks, "prices": build_prices, "market": build_market,
     "chips": build_chips, "valuation": build_valuation, "financials": build_financials,
-    "news": build_news, "research": build_research, "ops_log": build_ops_log,
+    "news": build_news, "research": build_research,
+    "predictions": build_predictions, "etf": build_etf, "ops_log": build_ops_log,
 }
 
 
