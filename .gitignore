@@ -56,3 +56,7 @@ logs/
 
 # 本機工具設定
 .claude/
+
+# 地端資料庫與知識庫（build_local_db.py、build_kb.py 產生，可重建）
+db/
+kb/

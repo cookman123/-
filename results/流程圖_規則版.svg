@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1160" width="1600" height="1160">
+  <style>
+    text { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif; fill: #1a1a1a; }
+    .box { fill: #ffffff; stroke: #1a1a1a; stroke-width: 2.2; }
+    .big { font-size: 20px; }
+    .mid { font-size: 17px; }
+    .sm { font-size: 15px; }
+    .xs { font-size: 13px; fill: #555; }
+    .blue { fill: #1f5fbf; }
+    .red { fill: #c62828; }
+    .purple { fill: #7b2cbf; }
+    .green { fill: #1b7a3a; }
+    .line { stroke: #1a1a1a; stroke-width: 2; fill: none; }
+    .gbox { fill: #f1faf3; stroke: #1b7a3a; stroke-width: 2; }
+    .rbox { fill: #fff6f6; stroke: #c62828; stroke-width: 2; }
+    .bbox { fill: #f3f7fd; stroke: #1f5fbf; stroke-width: 2; }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1a1a1a"/>
+    </marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c62828"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1b7a3a"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="1160" fill="#ffffff"/>
+
+  <!-- ================= 左側：主流程 ================= -->
+  <rect class="box" x="200" y="40" width="260" height="70" rx="10"/>
+  <text class="big" x="330" y="83" text-anchor="middle">一次性建置</text>
+  <line class="line" x1="330" y1="110" x2="330" y2="180" marker-end="url(#a)"/>
+
+  <line x1="40" y1="150" x2="1010" y2="150" stroke="#1a1a1a" stroke-width="1.6" stroke-dasharray="10 8"/>
+  <text class="mid" x="48" y="215">Routine</text>
+  <text class="mid" x="48" y="238">Loop</text>
+
+  <rect class="box" x="200" y="185" width="260" height="60" rx="10"/>
+  <text class="big" x="330" y="222" text-anchor="middle">每日爬蟲新資訊</text>
+  <line class="line" x1="460" y1="215" x2="505" y2="215" marker-end="url(#a)"/>
+  <rect class="box" x="510" y="192" width="190" height="46" rx="10"/>
+  <text class="mid" x="605" y="221" text-anchor="middle">存入 DB（內）檢驗</text>
+
+  <line class="line" x1="330" y1="245" x2="330" y2="282" marker-end="url(#a)"/>
+  <rect class="box" x="170" y="285" width="320" height="60" rx="10"/>
+  <text class="big" x="330" y="322" text-anchor="middle">處理新資訊（打分的邏輯）</text>
+  <line class="line" x1="330" y1="345" x2="330" y2="437" marker-end="url(#a)"/>
+
+  <text class="sm blue" x="150" y="432">資訊輸入</text>
+  <rect class="box" x="150" y="440" width="380" height="100" rx="14"/>
+  <text class="big" x="340" y="480" text-anchor="middle">① 新資訊輸入模型</text>
+  <text class="mid" x="340" y="515" text-anchor="middle">② 和存入 DB 以留給週期性回測數據</text>
+  <line x1="200" y1="524" x2="480" y2="524" stroke="#1f5fbf" stroke-width="1.5"/>
+
+  <!-- 2 mon 雙向箭頭 -->
+  <line class="line" x1="536" y1="490" x2="1054" y2="490" marker-start="url(#a)" marker-end="url(#a)"/>
+  <text class="mid" x="800" y="478" text-anchor="middle">2 mon　check if logic is correct</text>
+
+  <!-- 週期註記 -->
+  <text class="sm blue" x="360" y="568">↳ 利用之前回測 20 年數據的平均波段來決定週期</text>
+  <text class="sm blue" x="380" y="590">（重新檢驗策略（選股、投資邏輯）績效表現和是否要調整）</text>
+  <text class="sm red" x="360" y="622">↳ 根據 20 年平均獲利（5% 左右）、波段長度（avg ≈ 1.5 mon）來看，</text>
+  <text class="sm red" x="380" y="644">決定週期性檢驗為 2 mon 一次，來決定是否改變部位</text>
+  <text class="sm green" x="380" y="666">＝ 策略換倉週期 42 個交易日，檢驗與換倉同步</text>
+  <text class="sm blue" x="360" y="698">↳ 在 Claude 中的數據檢驗（significance_check.py）</text>
+  <line x1="852" y1="628" x2="985" y2="503" stroke="#1a1a1a" stroke-width="1.8" marker-end="url(#a)"/>
+
+  <line class="line" x1="330" y1="540" x2="330" y2="777" marker-end="url(#a)"/>
+
+  <text class="sm blue" x="150" y="772">實際操作</text>
+  <rect class="box" x="150" y="780" width="380" height="110" rx="14"/>
+  <text class="mid" x="340" y="815" text-anchor="middle">投資操作模型根據 RAG 的行為模式</text>
+  <text class="mid" x="340" y="843" text-anchor="middle">綜合新資訊的評分</text>
+  <text class="mid" x="340" y="871" text-anchor="middle">來決定今天的選股結果</text>
+
+  <text class="mid purple" x="560" y="805">→ 具體作法要搞懂，報告可能會問</text>
+  <text class="sm green" x="580" y="830">已補上 ↓</text>
+  <line x1="530" y1="860" x2="556" y2="880" stroke="#1b7a3a" stroke-width="1.8" marker-end="url(#ag)"/>
+
+  <!-- RAG 規則（新增） -->
+  <rect class="gbox" x="560" y="845" width="460" height="240" rx="12"/>
+  <text class="mid green" x="580" y="874" font-weight="bold">RAG 規則（候選，未採用）</text>
+  <text class="sm" x="580" y="902">① 檢索庫：出場日早於今天 − 30 天的跌深事件</text>
+  <text class="xs" x="604" y="922">只收答案已揭曉的，每月更新一次</text>
+  <text class="sm" x="580" y="948">② 用 26 個技術／籌碼／新聞特徵，找最像的 20 個</text>
+  <text class="sm" x="580" y="974">③ 分數＝這 20 個的淨報酬，依距離加權平均</text>
+  <text class="sm" x="580" y="1000">④ 分數 &lt; 過去 365 天第 20 百分位 → 不做</text>
+  <text class="xs" x="604" y="1020">其餘照原規則照單全收（只排除、不挑選）</text>
+  <text class="sm red" x="580" y="1048">回測：被排除 − 保留 −0.78%（t −1.51），不顯著</text>
+  <text class="xs" x="580" y="1070">→ 2025 起的新事件累積 24 個月，t &lt; −2 才採用（rag_rule.py）</text>
+
+  <line class="line" x1="330" y1="890" x2="330" y2="957" marker-end="url(#a)"/>
+  <rect class="box" x="150" y="960" width="380" height="90" rx="14"/>
+  <text class="mid" x="340" y="998" text-anchor="middle">將今日操作的結果回傳至 DB</text>
+  <text class="mid" x="340" y="1026" text-anchor="middle">留存資料，後續回測</text>
+
+  <!-- ================= 右側：Work Flow ================= -->
+  <rect class="box" x="1060" y="40" width="510" height="1060" rx="40"/>
+  <text x="1090" y="95" font-size="28">Work Flow（logic verification）</text>
+
+  <rect class="box" x="1090" y="125" width="450" height="50" rx="8"/>
+  <text class="mid" x="1315" y="156" text-anchor="middle">① 每 42 個交易日觸發（≈ 2 mon，與換倉同步）</text>
+  <line class="line" x1="1315" y1="175" x2="1315" y2="202" marker-end="url(#a)"/>
+
+  <rect class="box" x="1090" y="205" width="450" height="64" rx="8"/>
+  <text class="mid" x="1315" y="233" text-anchor="middle">② 本期 42 天累積超額 ＝ 策略 − 大盤</text>
+  <text class="xs" x="1315" y="256" text-anchor="middle">扣掉大盤：beta 造成的漲跌不算邏輯壞掉</text>
+  <line class="line" x1="1315" y1="269" x2="1315" y2="296" marker-end="url(#a)"/>
+
+  <rect class="box" x="1090" y="299" width="450" height="64" rx="8"/>
+  <text class="mid" x="1315" y="327" text-anchor="middle">③ 跟過去 20 年所有 42 天窗口的分布比</text>
+  <text class="xs" x="1315" y="350" text-anchor="middle">參考分布只用本期之前的資料</text>
+  <line class="line" x1="1315" y1="363" x2="1315" y2="392" marker-end="url(#a)"/>
+
+  <rect class="rbox" x="1090" y="395" width="450" height="170" rx="10"/>
+  <text class="mid red" x="1110" y="424"><tspan text-decoration="line-through">(unsolved)</tspan> Decide Significance → 已解決</text>
+  <text class="sm" x="1110" y="456">A　本期 &lt; 第 5 百分位 → 注意（只觀察）</text>
+  <text class="sm" x="1110" y="484">B　連續兩期 &lt; 第 10 百分位 → 顯著</text>
+  <text class="sm" x="1110" y="512">C　近一年日超額顯著低於歷史 → 顯著</text>
+  <text class="xs" x="1134" y="532">單尾 Newey-West t 檢定，p &lt; 0.05</text>
+  <text class="xs" x="1110" y="554">三條事先固定，不看結果再調</text>
+  <line class="line" x1="1315" y1="565" x2="1315" y2="602" marker-end="url(#a)"/>
+
+  <polygon points="1315,605 1395,650 1315,695 1235,650" class="box"/>
+  <text class="mid" x="1315" y="646" text-anchor="middle">顯著？</text>
+  <text class="xs" x="1315" y="666" text-anchor="middle">B 或 C</text>
+  <line class="line" x1="1395" y1="650" x2="1432" y2="650" marker-end="url(#a)"/>
+  <text class="xs" x="1410" y="640" text-anchor="middle">否</text>
+  <rect class="box" x="1435" y="620" width="120" height="60" rx="8"/>
+  <text class="sm" x="1495" y="645" text-anchor="middle">維持部位</text>
+  <text class="sm" x="1495" y="667" text-anchor="middle">回主流程</text>
+
+  <line class="line" x1="1315" y1="695" x2="1315" y2="732" marker-end="url(#a)"/>
+  <text class="xs" x="1328" y="718">是</text>
+  <rect class="box" x="1090" y="735" width="450" height="64" rx="8"/>
+  <text class="mid" x="1315" y="763" text-anchor="middle">先查原因，不直接換股</text>
+  <text class="xs" x="1315" y="786" text-anchor="middle">產業太集中？資料出錯？市場結構改變？</text>
+  <line class="line" x1="1315" y1="799" x2="1315" y2="828" marker-end="url(#a)"/>
+
+  <rect class="bbox" x="1090" y="831" width="450" height="140" rx="10"/>
+  <text class="sm blue" x="1110" y="858">if significant change happened → 用換股邏輯</text>
+  <text class="sm" x="1110" y="886">· 成本感知換手：B 的預期超額 &gt; 交易成本才換</text>
+  <text class="sm" x="1110" y="912">· 自然退場：A 不再加碼，照原本出場規則走</text>
+  <text class="sm" x="1110" y="938">· 出場順序：先賣評分最差、流動性好、</text>
+  <text class="sm" x="1126" y="960">已跌破停損的</text>
+
+  <rect class="gbox" x="1090" y="990" width="450" height="88" rx="10"/>
+  <text class="sm green" x="1110" y="1016">歷史回放 92 期：判為顯著 6 期（約每 2.6 年一次）</text>
+  <text class="sm" x="1110" y="1042">觸發後下一期超額 +1.73%，未觸發 +0.98%</text>
+  <text class="sm red" x="1110" y="1066">→ 規則當警報用，觸發後不自動換股</text>
+
+  <!-- 圖例 -->
+  <text class="sm" x="40" y="1135">黑：流程</text>
+  <text class="sm blue" x="140" y="1135">藍：說明</text>
+  <text class="sm red" x="240" y="1135">紅：週期、門檻與要注意的結果</text>
+  <text class="sm purple" x="490" y="1135">紫：原本的待辦</text>
+  <text class="sm green" x="630" y="1135">綠：這次補上的規則與數字</text>
+</svg>
