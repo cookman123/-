@@ -15,7 +15,7 @@ import llm_judge as J
 import paper_trade as P
 import paper_ui
 
-STRATS = list(P.LLM_NAMES) + list(F.STRATEGIES)
+STRATS = list(P.PICK_NAMES) + list(F.STRATEGIES)
 PICK_HELP = ("流程圖「實際操作」：候選池是 5 日模型前 N 名，由 LLM 依 RAG 行為模式（歷史上最像的情境後來怎麼走）"
              "和新資訊評分（模型排名、近期漲跌、最新新聞）挑最多 K 檔（K＝最多同時持有幾檔），持有 5 日。"
              "每期約 20 秒；N、K 用下面的「前 N 名」和「最多同時持有幾檔」。\n\n"
@@ -90,10 +90,10 @@ def _auto(con, initial: float, acct: int) -> None:
         go = st.form_submit_button("開始自動下單", type="primary")
     if not go:
         return
-    if key not in P.LLM_NAMES and scope == "top" and F.STRATEGIES[key]["kind"] != "model":
+    if key not in P.PICK_NAMES and scope == "top" and F.STRATEGIES[key]["kind"] != "model":
         st.error("「模型每天前 N 名」只適用 5 日、20 日、隔日模型。")
         return
-    if key not in P.LLM_NAMES and scope == "codes" and not picks:
+    if key not in P.PICK_NAMES and scope == "codes" and not picks:
         st.error("請至少選一檔個股。")
         return
     if fresh:
@@ -111,7 +111,7 @@ def _auto(con, initial: float, acct: int) -> None:
                              progress=lambda f, m: bar.progress(min(f, 1.0), m), acct=acct)
             st.session_state["auto_done"] = r
             st.rerun()
-        if key in P.LLM_NAMES:
+        if key in P.PICK_NAMES:
             r = P.run_llm_pick(con, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"), n=int(top_n), k=int(max_pos),
                                amount=float(amount), progress=lambda f, m: bar.progress(min(f, 1.0), m), acct=acct,
                                strategy=key)
@@ -177,9 +177,9 @@ def _daily(con, acct: int, initial: float) -> None:
             enabled = st.checkbox("啟用", value=bool(cfg.get("enabled", 1)))
         save = st.form_submit_button("儲存設定", type="primary")
     if save:
-        if key not in P.LLM_NAMES and scope == "top" and F.STRATEGIES[key]["kind"] != "model":
+        if key not in P.PICK_NAMES and scope == "top" and F.STRATEGIES[key]["kind"] != "model":
             st.error("「模型每天前 N 名」只適用 5 日、20 日、隔日模型。")
-        elif key not in P.LLM_NAMES and scope == "codes" and not picks:
+        elif key not in P.PICK_NAMES and scope == "codes" and not picks:
             st.error("請至少選一檔個股。")
         else:
             P.set_auto(con, acct, key, mode, codes=_codes(scope, picks), top_n=int(top_n) if scope == "top" else None,

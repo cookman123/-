@@ -58,14 +58,16 @@ FEE, TAX = 0.001425 * 0.3, 0.003
 ETF, ETF_TAX, SWEEP = "0050", 0.001, "__0050__"
 INITIAL_CASH = 1_000_000
 STATUS = {"pending": "待成交", "filled": "已成交", "rejected": "退單", "cancelled": "已取消"}
-LLM_PICK, LLM_SCORE, LLM_PM = "llm_pick", "llm_score", "llm_pm"
+LLM_PICK, LLM_SCORE, LLM_PM, REV_PICK = "llm_pick", "llm_score", "llm_pm", "rev_pick"
 LLM_NAMES = {LLM_PM: "LLM 自主操盤（研究結論 RAG＋DB 分析，自己組投資組合）",
              LLM_PICK: "LLM 選股（RAG＋新資訊評分）", LLM_SCORE: "LLM 打分第二版（加基本面與新聞內文）"}
+# 不用 LLM 的對照組：和 LLM 選股同一個候選池、同樣持有 5 日，只換成營收年增率排序（llm_score_eval.py 的 D 組）
+PICK_NAMES = LLM_NAMES | {REV_PICK: "規則對照：營收年增前 K 名（5 日模型前 N 名裡）"}
 
 
 def strategy_name(key: str) -> str:
     import forecast as F
-    return LLM_NAMES.get(key) or F.STRATEGIES[key]["name"]
+    return PICK_NAMES.get(key) or F.STRATEGIES[key]["name"]
 SETTINGS = ("initial_cash", "sweep", "sweep_start")          # paper_accounts 裡可以用 setting() 讀寫的欄位
 
 
@@ -326,7 +328,7 @@ def run_llm_pick(con, start: str, end: str, n: int = 12, k: int = 5, amount: flo
     import forecast as F
     import llm_judge as J
 
-    why = J.available()
+    why = None if strategy == REV_PICK else J.available()
     if why:
         raise ValueError(f"LLM 選股需要地端模型：{why}")
     complete = set(F.complete_days(con, 5).index)
@@ -334,7 +336,7 @@ def run_llm_pick(con, start: str, end: str, n: int = 12, k: int = 5, amount: flo
                                       "ORDER BY date", [start, end]) if d in complete]
     batch = batch or (f"{strategy_name(strategy)}｜{start}~{end}｜{time.strftime('%m%d-%H%M%S')}"
                       f"{int(time.time() * 1000) % 1000:03d}")
-    tag, note = f"auto:{strategy}", "LLM 選股" if strategy == LLM_PICK else "LLM 打分"
+    tag, note = f"auto:{strategy}", {LLM_PICK: "LLM 選股", LLM_SCORE: "LLM 打分"}.get(strategy, "營收規則")
     if days and not setting(con, "sweep_start", acct=acct):
         set_setting(con, "sweep_start", days[0], acct)
     # 上一期還沒出場就不開新的一期（也接得上之前幾次執行留下的部位）
@@ -349,7 +351,12 @@ def run_llm_pick(con, start: str, end: str, n: int = 12, k: int = 5, amount: flo
         c = J.candidates(con, d, n)
         if c.empty:
             continue
-        if strategy == LLM_SCORE:
+        if strategy == REV_PICK:
+            yoy = {x: J._rev(con, x, d)[1] for x in c["code"]}
+            top = sorted(c["code"], key=lambda x: -yoy[x] if yoy[x] == yoy[x] else np.inf)[:k]   # 缺值排最後
+            r = {"picks": [dict(code=x, weight=1 / len(top), reason=f"營收年增 {yoy[x]:+.0f}%")
+                           for x in top]}
+        elif strategy == LLM_SCORE:
             s = J.score(con, d, c, k, account=acct, batch=batch)
             r = {"picks": [dict(code=x, weight=1 / len(s["picks"]),
                                 reason=f"{s['scores'][x]:.0f} 分，{s['reasons'].get(x, '')}") for x in s["picks"]]}
@@ -524,7 +531,7 @@ def run_auto(con, acct: int | None = None, progress=None) -> list:
             if c.strategy == LLM_PM:
                 r = run_llm_pm(con, start, last, n=top_n or 8, k=int(c.max_pos), progress=progress,
                                acct=int(c.account), batch=f"每日自動跟單｜{name}")
-            elif c.strategy in LLM_NAMES:
+            elif c.strategy in PICK_NAMES:
                 r = run_llm_pick(con, start, last, n=top_n or 12, k=int(c.max_pos), amount=c.amount,
                                  progress=progress, acct=int(c.account), batch=f"每日自動跟單｜{name}",
                                  strategy=c.strategy)
