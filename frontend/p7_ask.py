@@ -52,10 +52,46 @@ def _show(r: dict) -> None:
     st.markdown(r["answer"].replace("~", r"\~"))
     if r["bad"]:
         st.warning(f"回答仍引用不存在的出處 {', '.join(f'[{b}]' for b in r['bad'])}，這些句子請勿採信。")
+    if r.get("nums"):
+        st.warning(f"這些數字在資料裡找不到根據（或正負方向相反）：{'、'.join(r['nums'])}，請勿採信。")
     with st.expander(f"出處 {len(r['items'])} 項：規則定義 {r['n_rule']}、結構化資料 {r['n_ctx']}、"
                      f"檢索 {r['n_hits']}　·　{r['secs']:.0f} 秒"):
         for i, t in enumerate(r["items"], 1):
             st.markdown(f"**[{i}]** {common.esc(t)}".replace("\n", "  \n").replace("~", r"\~"))
+
+
+def _diagnose() -> None:
+    """讀邏輯檢驗、策略近況與研究文件，由本機模型寫診斷報告；只是候選方向，不會自動換策略。"""
+    import sqlite3
+
+    import llm_judge as J
+
+    con = sqlite3.connect(L.DB, check_same_thread=False)
+    sg = con.execute("SELECT check_date, level FROM significance ORDER BY check_date DESC LIMIT 1").fetchone()
+    if sg:
+        st.caption(f"最近一次邏輯檢驗：{sg[0]}，結論「{sg[1]}」。")
+    c1, c2 = st.columns([1, 2])
+    with c1:
+        day = st.date_input("診斷日期", value=date.today(), min_value=date(2012, 1, 1), max_value=date.today(),
+                            key="diag_day")
+    with c2:
+        st.write("")
+        go = st.button("產生診斷報告", key="diag_go")
+    if go:
+        with st.spinner("本機模型寫診斷中，大約 1 到 2 分鐘…"):
+            try:
+                st.session_state["diag"] = J.diagnose(con, day.strftime("%Y-%m-%d"))
+            except Exception as e:
+                st.error(f"診斷失敗：{e}")
+    d = st.session_state.get("diag")
+    if d:
+        st.markdown(d["text"].replace("~", r"\~"))
+        if d["bad"]:
+            st.warning(f"引用了不存在的出處 {d['bad']}，那幾句請勿採信。")
+        with st.expander(f"資料 {len(d['items'])} 項　·　{d['secs']:.0f} 秒　·　存在 {d['path']}"):
+            for i, t in enumerate(d["items"], 1):
+                st.markdown(f"**[{i}]** {common.esc(t)}")
+    st.caption("報告只提出候選調整方向，每個方向都要回測通過才能上線；不會自動換策略。")
 
 
 def main():
@@ -80,6 +116,9 @@ def main():
                 return
         r |= {"q": q, "code": code, "secs": time.time() - t0}
         st.session_state.setdefault("ask_hist", []).insert(0, r)
+
+    with st.expander("策略診斷（邏輯檢驗出現警訊時用）"):
+        _diagnose()
 
     hist = st.session_state.get("ask_hist", [])
     if not hist:

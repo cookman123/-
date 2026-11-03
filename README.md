@@ -72,7 +72,9 @@ White Reality Check／Hansen SPA 校正資料窺探、事先固定變體再一�
 ├─ fill_2011_gap.py、corp_actions.py、dividend_check.py     資料修補、除權息、現金股利
 ├─ financials_crawler.py、fundamental_factors.py、fundamental_verify.py   財報與營收因子
 ├─ revenue_event_study.py  月營收公告事件研究（四種基準：母體、成交值×波動、產業、大盤）
-├─ frontend/               本機 Streamlit 前端（app.py 進入點，六頁）
+├─ frontend/               本機 Streamlit 前端（app.py 進入點）
+├─ restricted.py、fetch_restricted.py、restricted_check.py   處置／注意／全額交割股名單與候選池可交易性檢查
+├─ numcheck.py、attest_local.py、llm_random_control.py      地端 LLM 的數字核對、決策存證、隨機同檔數對照
 ├─ tw_*_crawler.py、intl_news_crawler.py、daily_update.py    資料爬蟲與每日更新
 ├─ tool/                    稽核與對照工具（價格跳動掃描、前視 A/B、2011 修正 A/B）
 └─ results/                 結論文件、各分析的摘要表與執行紀錄
@@ -135,6 +137,28 @@ python -m streamlit run frontend/app.py --server.address 127.0.0.1
 瀏覽器開 `http://127.0.0.1:8501`。前端只讀 `data/` 與 `results/`，唯一的例外是「執行」視窗裡的三個固定指令
 （`daily_update.py --no-news`、`strategy_spec.py`、`revenue_event_study.py`）。頁首會提醒股價、母體快取或清單是否過舊。
 沒有朋友專案的 TEJ 授權資料、LLM 分析師與模擬持股，這三塊沒有搬過來。
+
+## 量化端與地端 LLM 的分工（併入 tw-stock-quant 的做法）
+
+原則：**規則能查表、能回測的放量化端；讀新聞、整理理由、在規則給的範圍內挑選才交給地端 LLM（gemma3:12b），
+而且 LLM 的輸出要能被核對、被存證，並且要和規則與隨機挑選比過才採用。**
+
+量化端
+- **處置／注意／全額交割股**（`restricted.py`、`fetch_restricted.py`，取自朋友的專案）：交易所公告的硬條件，
+  隔日開盤多半買不到。`llm_judge.candidates()` 先排除再給 LLM 挑；`strategy_spec.py` 的清單加上「交易限制」欄
+  （只標示，不改規格）。`restricted_check.py` 量化回測硬算這些股票會多算多少
+- **營收驚喜 SUR**（取自朋友的 `surprise.py`）：加進 `revenue_event_study.py` 的事件。每筆平均超額比
+  「創新高且年增≥30%」小，但前後兩段都穩定（對成交值×波動配對全期 t 6.3）
+
+地端 LLM
+- **數字核對**（`numcheck.py`，取自朋友的評測數字比對）：`local_ask.py` 的回答裡，資料中找不到、或正負方向
+  寫反的數字，會要求模型重寫一次，還是有就在前端標出來
+- **決策存證**（`attest_local.py`，取自朋友的 `attest.py`）：`llm_decisions` 每一列算雜湊、串成鏈，
+  `paper_daily.py` 每天跑完自動存證；`verify` 能指出哪一列被改過
+- **隨機同檔數對照**（`llm_random_control.py`）：LLM 挑 k 檔，就從同一群候選隨機挑 k 檔重複 5000 次，
+  看 LLM 的成績在隨機分布的哪裡（事後補充，採用與否仍照原本 t > 2 的規則）
+
+結果都在前端「策略 → 地端 LLM 評估」。
 
 ## 限制
 

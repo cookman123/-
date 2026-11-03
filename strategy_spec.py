@@ -267,8 +267,16 @@ def main(argv=None) -> int:
         out_rows.append({"代號": code, "名稱": nm, "產業": cat,
                          "排名": int(rank[code]) if code in rank.index else np.nan,
                          "年化波動": np.nan, "動作": "賣出"})
-    pd.DataFrame(out_rows).to_csv(OUT / "current_picks.csv",
-                                  index=False, encoding="utf-8-sig")
+    # 處置／注意／全額交割股（restricted.py，取自 tw-stock-quant）：隔日開盤不能正常買。
+    # 只標示、不改清單 —— 回測的規格沒有這條，換掉會讓清單和回測對不上；要不要暫緩買進由人決定
+    import restricted as RS
+    out = pd.DataFrame(out_rows)
+    flag = RS.flags(pd.DataFrame({"date": last, "code": out["代號"]}), C.index, 1)
+    out["交易限制"] = np.where(flag & (out["動作"] == "買進"), "處置／注意，隔日不能正常買", "")
+    if flag.any():
+        print(f"\n  ⚠ 處置／注意／全額交割：{'、'.join(out.loc[flag, '代號'])}"
+              "（隔日不能正常買；清單照規格不變）")
+    out.to_csv(OUT / "current_picks.csv", index=False, encoding="utf-8-sig")
     cats = pd.Series([sec.get(c, ("", "？"))[1] for c in picks.index]).value_counts()
     print(f"\n  產業分布：{'、'.join(f'{k} {v}' for k, v in cats.head(6).items())}")
     print(f"  輸出：{OUT / 'current_picks.csv'}")

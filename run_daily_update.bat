@@ -1,7 +1,9 @@
 @echo off
 rem Daily update of ALL data sources (daily_all.py): prices, indices, ETFs,
 rem oil, news, T86, fundamentals, revenue, PTT, GDELT, futures, corporate
-rem actions, delisted, price-jump fixes, feature rebuild.
+rem actions, delisted, price-jump fixes, feature rebuild, then model
+rem predictions, the local SQLite DB and the paper-trading auto-follow
+rem accounts (step 13, ready before the next market open).
 rem Called by Windows Task Scheduler. Can also be run by double-clicking.
 rem Exit code 0 = every step succeeded.
 rem Exit code 3 = at least one step failed; see data\daily\all_YYYYMMDD.txt.

@@ -32,6 +32,11 @@ t 值：先把事件依「進場月份」平均成一條月序列，再做 Newey
   創新高 且 年增≥30%       原版最強的事件
   年增≥30% 但未創新高
   年增≤−20%
+  營收驚喜／壞消息         取自 tw-stock-quant 的 surprise.py（2026-10 加入，規則照原版、不調參數）：
+                           SUR =（單月營收 − 去年同月 − 前 24 個月這個差的平均）÷ 前 24 個月的標準差
+                           （至少 12 個月，截在 ±10）；門檻用公布月份之前 12 個月全部上市櫃公司的公告分 10 組，
+                           最高一組 = 驚喜、最低一組 = 壞消息。比「年增 30%」多考慮了這家公司平常的波動
+                           這兩個是看過前六個事件的結果之後才加的，算事後補充
 
 輸出 results/revenue_event/：events.csv（逐事件）、summary.csv、bench.csv、yearly.csv
 """
@@ -81,7 +86,29 @@ def revenue_events() -> pd.DataFrame:
     ly = key.reindex(list(zip(r["code"], r["p"] - 12)))
     full = (r["ytd_n"].to_numpy() == r["p"].dt.month.to_numpy()) & (ly["ytd_n"].to_numpy() == r["p"].dt.month.to_numpy())
     r["cum_yoy"] = FF._growth(r["ytd"], pd.Series(ly["ytd"].to_numpy(), index=r.index)).where(full)
-    return r
+
+    # 營收驚喜 SUR（tw-stock-quant surprise.py）：期數對齊，中間缺月不硬接
+    d = (r["revenue"] - r["rev_ly"]).set_axis(pd.MultiIndex.from_arrays([r["code"], r["p"]]))
+    sur = []
+    for code, x in d.groupby(level=0):
+        x = x.droplevel(0)
+        x = x.reindex(pd.period_range(x.index.min(), x.index.max(), freq="M"))
+        prev = x.shift(1).rolling(24, min_periods=12)
+        z = ((x - prev.mean()) / prev.std().where(lambda v: v > 0)).clip(-10, 10)
+        sur.append(pd.Series(z.to_numpy(), index=pd.MultiIndex.from_product([[code], z.index])))
+    sur = pd.concat(sur)
+    r["sur"] = sur.reindex(pd.MultiIndex.from_arrays([r["code"], r["p"]])).to_numpy()
+    # 十分位門檻：公布月份之前 12 個月的全部公告，至少 2,000 筆才給
+    r["am"] = r["avail_date"].dt.to_period("M")
+    r["sur_dec"] = np.nan
+    for m in r["am"].dropna().unique():
+        past = r.loc[(r["am"] < m) & (r["am"] >= m - 12), "sur"].dropna()
+        if len(past) < 2000:
+            continue
+        cur = (r["am"] == m) & r["sur"].notna()
+        r.loc[cur, "sur_dec"] = np.searchsorted(np.quantile(past, np.linspace(0.1, 0.9, 9)),
+                                                r.loc[cur, "sur"], side="right") + 1
+    return r.drop(columns="am")
 
 
 def bench_returns(O: pd.DataFrame, C: pd.DataFrame, turn: pd.DataFrame, mask: pd.DataFrame,
@@ -172,6 +199,8 @@ def main(argv=None) -> int:
         "創新高 且 年增≥30%": hi30,
         "年增≥30% 但未創新高": ~ev["is_high"] & (ev["yoy"] >= 0.30),
         "年增≤−20%": ev["yoy"] <= -0.20,
+        "營收驚喜（SUR 最高一成）": ev["sur_dec"] == 10,
+        "營收壞消息（SUR 最低一成）": ev["sur_dec"] == 1,
     }
 
     rows = []

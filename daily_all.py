@@ -240,6 +240,20 @@ def step12():
     return ok_all, "\n".join(msgs)
 
 
+def step13():
+    """開盤前要用的東西：模型預測接到最新一天、寫進本機 DB、每日自動跟單的模擬帳戶。
+    要在第 12 步（特徵庫）之後跑；預測沿用 data/models/ 存好的每一折模型，約一年才重訓一次。"""
+    msgs, ok_all = [], True
+    for title, args in (("預測", ("tool/run_surv.py", "predict_daily", "--tag", "_surv")),
+                        ("本機 DB", ("build_local_db.py", "--tables", "prices", "market", "chips", "valuation",
+                                     "financials", "news", "research", "predictions", "etf")),
+                        ("模擬帳戶", ("paper_daily.py",))):
+        ok, m = run(*args)
+        ok_all &= ok
+        msgs.append(f"{title}：{'成功' if ok else '失敗'}\n  " + (m or "").replace("\n", "\n  "))
+    return ok_all, "\n".join(msgs)
+
+
 STEPS = {1: ("股價、指數、ETF、油價、鉅亨個股新聞", step1),
          2: ("三大法人 T86", step2),
          3: ("本益比、殖利率、股價淨值比", step3),
@@ -251,7 +265,8 @@ STEPS = {1: ("股價、指數、ETF、油價、鉅亨個股新聞", step1),
          9: ("除權息、減資", step9),
          10: ("下市清單與下市股價", step10),
          11: ("股價假跳動檢查", step11),
-         12: ("衍生資料重建（母體、特徵庫、快取）", step12)}
+         12: ("衍生資料重建（母體、特徵庫、快取）", step12),
+         13: ("模型預測、本機資料庫、模擬帳戶（開盤前用）", step13)}
 
 
 def main(argv=None) -> int:
@@ -268,7 +283,7 @@ def main(argv=None) -> int:
     for k in todo:
         name, fn = STEPS[k]
         s = time.time()
-        print(f"\n[{k}/12] {name}", flush=True)
+        print(f"\n[{k}/{len(STEPS)}] {name}", flush=True)
         try:
             ok, msg = fn()
         except Exception as e:  # noqa: BLE001

@@ -69,10 +69,14 @@ def split_markdown(path: Path) -> list:
         if not body:
             return
         paras, cur = re.split(r"\n\s*\n", body), ""
+        # 段首的引用區塊（> 開頭）是整節的但書，例如 14.5「本節的數字是稽核前的」。
+        # 節被切成好幾段時，原本只有第一段帶到它，模型就會把稽核前的數字當結論引用（2026-11 實測），
+        # 所以切出來的每一段都補上
+        note = paras[0] if paras and paras[0].lstrip().startswith(">") else ""
         for p in paras:
             if cur and len(cur) + len(p) > MAX_CHARS:
                 out.append((head, cur.strip()))
-                cur = ""
+                cur = note + "\n\n" if note else ""
             cur += p + "\n\n"
         if cur.strip():
             out.append((head, cur.strip()))

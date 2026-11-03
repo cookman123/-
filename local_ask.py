@@ -38,6 +38,8 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+import numcheck as N  # noqa: E402
 DB = ROOT / "db" / "local.db"
 OLLAMA = "http://localhost:11434"
 # Google Gemma：繁中可用、12 GB 顯示卡放得下，且沒有中國模型的審查對齊（兩岸、晶片禁令新聞會被改寫）
@@ -53,7 +55,10 @@ SYSTEM = """你是台股量化研究的助理，使用繁體中文回答。
    你只負責說明規則怎麼判斷、理由是什麼，不要自己給出買賣建議。
 4. 研究結論若說某個效應不顯著或只是候選，要照實講，不要說得比資料更樂觀。
    模型預測、相似走勢與建議進出場點都要連同它的研究結論與回測紀錄一起講。
-5. 結尾提醒：這是研究規則的輸出，不是投資建議。"""
+5. 資料以「>」開頭、寫著「稽核前」「稽核後」「已被推翻」「不再通過」的提醒，優先於同一段的其他數字：
+   結論一律用稽核後（最新）的數字，舊數字只能標明「稽核前」當作過程，不能當成現在的結果。
+   數字照原文的欄位名稱講（例如「扣成本年化」和「對沖後年化」是不同的數字，不要混用）。
+6. 結尾提醒：這是研究規則的輸出，不是投資建議。"""
 
 # 每次都附上的規則定義。實測時模型把「出場日早於今天 − 30 天」讀成「最近 30 天內」，
 # 所以把容易誤讀的地方用白話寫死，放在資料最前面
@@ -137,6 +142,24 @@ def stock_context(con, code: str, asof: str) -> list:
     pk = con.execute("SELECT asof, rank, action FROM picks WHERE code = ?", [code]).fetchone()
     if pk:
         out.append(f"{name} 在高波動策略最新清單（{pk[0]}）排第 {pk[1]}，動作：{pk[2]}。")
+    return out + live_context(con, asof, code, name)
+
+
+def live_context(con, asof: str, code: str | None = None, name: str | None = None) -> list:
+    """視角是今天、盤中報價（intraday.py）有今天的資料時：加權指數與這檔的即時價。原始價，不是還原價。"""
+    if asof != pd.Timestamp.today().strftime("%Y-%m-%d"):
+        return []
+    import intraday
+    out = []
+    for c, label in ((intraday.INDEX, "加權指數"), (code, name or code)):
+        q = intraday.quote(con, c) if c else None
+        if not q or not q["last"] or not q["prev_close"]:
+            continue
+        out.append(f"{label} 今天盤中即時（證交所，{q['date']} {q['time']}，原始價）：現價 {q['last']:.2f}，"
+                   f"比昨收 {q['prev_close']:.2f} {q['last'] / q['prev_close'] - 1:+.2%}，"
+                   f"開盤 {q['open'] or float('nan'):.2f}、最高 {q['high'] or float('nan'):.2f}、"
+                   f"最低 {q['low'] or float('nan'):.2f}"
+                   + (f"，累計 {q['volume']:,.0f} 張" if c != intraday.INDEX and q["volume"] else "") + "。")
     return out
 
 
@@ -206,6 +229,7 @@ def ask(question: str, code: str | None = None, asof: str | None = None, k: int 
       answer  回答（dry_run 時是送給模型的完整內容）
       items   資料項清單，第 i 項就是出處 [i+1]
       bad     回答裡仍不存在的出處編號
+      nums    回答裡在資料中找不到根據的數字（numcheck.unverified）
       n_rule / n_ctx / n_hits  各類資料的項數
     """
     asof = asof or pd.Timestamp.today().strftime("%Y-%m-%d")
@@ -213,10 +237,10 @@ def ask(question: str, code: str | None = None, asof: str | None = None, k: int 
     em = embed_model or (con.execute(
         "SELECT value FROM meta WHERE key = 'kb.embed_model'").fetchone() or ["embeddinggemma"])[0]
     hits = retrieve(con, question, asof, k, code, em or "embeddinggemma")
-    ctx = strategy_context(con, asof) + (stock_context(con, code, asof) if code else [])
+    ctx = strategy_context(con, asof) + (stock_context(con, code, asof) if code else live_context(con, asof))
     prompt, items = build_prompt(question, ctx, hits)
     con.close()
-    out = {"items": items, "bad": [], "asof": asof,
+    out = {"items": items, "bad": [], "nums": [], "asof": asof,
            "n_rule": len(RULE_FACTS), "n_ctx": len(ctx), "n_hits": len(hits)}
     if dry_run:
         return out | {"answer": f"[system]\n{SYSTEM}\n\n[user]\n{prompt}"}
@@ -232,7 +256,17 @@ def ask(question: str, code: str | None = None, asof: str | None = None, k: int 
                   f"{len(items)} 項。請找出這些內容實際對應的編號後重新回答；找不到出處的句子請刪除。"}]
         answer = chat(model, msgs)
         bad = bad_citations(answer, len(items))
-    return out | {"answer": answer, "bad": bad}
+    nums = N.unverified(answer, items, question)
+    if nums:
+        # 數字在資料裡找不到（改寫、算錯或自己補的）：同樣要它重寫一次，還是有就照實標示
+        msgs += [{"role": "assistant", "content": answer},
+                 {"role": "user", "content":
+                  f"回答裡的數字 {'、'.join(nums)} 在資料裡找不到（或正負方向和資料相反）。"
+                  "請改用資料裡原本的數字，不要自己換算或估計；資料沒有的數字請刪除，出處編號照舊。"}]
+        answer = chat(model, msgs)
+        bad = bad_citations(answer, len(items))
+        nums = N.unverified(answer, items, question)
+    return out | {"answer": answer, "bad": bad, "nums": nums}
 
 
 def main(argv=None) -> int:
@@ -256,6 +290,8 @@ def main(argv=None) -> int:
         return 0
     if r["bad"]:
         print(f"\n⚠ 回答仍引用不存在的出處 {', '.join(f'[{b}]' for b in r['bad'])}，這些句子請勿採信。")
+    if r["nums"]:
+        print(f"⚠ 這些數字在資料裡找不到根據：{'、'.join(r['nums'])}，請勿採信。")
     print(f"\n—— 出處：{r['n_rule']} 項規則定義＋{r['n_ctx']} 項結構化資料＋"
           f"{r['n_hits']} 段檢索，共 {len(r['items'])} 項（視角 {r['asof']}）")
     return 0

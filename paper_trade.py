@@ -18,6 +18,20 @@
 策略自動下單（run_strategy）：選一套 forecast.py 的策略和出場方式，從起日到迄日逐個交易日，
 每天只用當天收盤以前的資料判斷有沒有進場訊號（和「個股預測」頁同一套），有就下買單和對應的賣單。
 同一檔持有中不重複進場，同時持有不超過 max_pos 檔。同一批的委託共用一個 batch，可以整批刪除。
+llm=True 時每個訊號先給地端 LLM 審核（llm_judge.review）：buy 照買、half 買一半、skip 這次不買。
+
+LLM 選股（run_llm_pick，策略代號 llm_pick）：流程圖「實際操作」那一格。規則只給候選池（5 日模型前 N 名），
+由 LLM 依「RAG 行為模式＋新資訊評分」挑最多 K 檔、給權重（llm_judge.select），持有 5 日、開盤進出。
+上一期的部位出場後才開下一期，所以各期不重疊；每日自動跟單也能用。
+
+LLM 自主操盤（run_llm_pm，策略代號 llm_pm）：LLM 自己選股、自己組投資組合。每 every 個交易日一次，
+llm_judge.manage 讀研究結論（RAG）、DB 裡各策略的輸出、大盤與目前持股，給出目標權重（佔總資產）；
+這裡把目標和目前持股的差下成隔日開盤的買賣單。沒有固定持有期，什麼時候賣也由 LLM 決定。
+差距小於總資產 min_trade 的不動，避免為了微調付成本；剩下的錢照帳戶設定放 0050。
+
+每日自動跟單（paper_auto 表、run_auto）：每個帳戶可以存一組自動下單設定，每天資料更新後執行
+python paper_daily.py，從上次跑到的那天接著跑到最新一天。開兩個帳戶，一個只用規則、一個加 LLM 審核，
+往後累積的紀錄就是兩者最乾淨的比較（未來的行情模型不可能看過）。
 
 閒置資金買 0050（帳戶設定 sweep，預設開）：和 reversal_two_investors.py 的投資人 B 同一個做法，
 沒有用在個股上的錢一律放 0050（含息還原價，etf_prices 表）。每個有成交的交易日開盤：先處理賣單，
@@ -44,11 +58,20 @@ FEE, TAX = 0.001425 * 0.3, 0.003
 ETF, ETF_TAX, SWEEP = "0050", 0.001, "__0050__"
 INITIAL_CASH = 1_000_000
 STATUS = {"pending": "待成交", "filled": "已成交", "rejected": "退單", "cancelled": "已取消"}
+LLM_PICK, LLM_SCORE, LLM_PM = "llm_pick", "llm_score", "llm_pm"
+LLM_NAMES = {LLM_PM: "LLM 自主操盤（研究結論 RAG＋DB 分析，自己組投資組合）",
+             LLM_PICK: "LLM 選股（RAG＋新資訊評分）", LLM_SCORE: "LLM 打分第二版（加基本面與新聞內文）"}
+
+
+def strategy_name(key: str) -> str:
+    import forecast as F
+    return LLM_NAMES.get(key) or F.STRATEGIES[key]["name"]
 SETTINGS = ("initial_cash", "sweep", "sweep_start")          # paper_accounts 裡可以用 setting() 讀寫的欄位
 
 
 def connect(db: str | Path = DB) -> sqlite3.Connection:
-    con = sqlite3.connect(db, check_same_thread=False)
+    # 盤中報價（intraday.py）同時在寫，等鎖久一點
+    con = sqlite3.connect(db, timeout=30, check_same_thread=False)
     ensure(con)
     return con
 
@@ -67,6 +90,10 @@ def ensure(con) -> None:
                      ("batch", "TEXT"), ("parent", "INTEGER"), ("account", "INTEGER NOT NULL DEFAULT 1")):
         if col not in have:
             con.execute(f"ALTER TABLE paper_orders ADD COLUMN {col} {typ}")
+    con.execute("""CREATE TABLE IF NOT EXISTS paper_auto (
+        account INTEGER PRIMARY KEY, strategy TEXT NOT NULL, mode TEXT NOT NULL DEFAULT 'fixed',
+        codes TEXT, top_n INTEGER, amount REAL NOT NULL, max_pos INTEGER NOT NULL, llm INTEGER NOT NULL DEFAULT 0,
+        last_run TEXT, enabled INTEGER NOT NULL DEFAULT 1)""")
     con.execute("""CREATE TABLE IF NOT EXISTS paper_accounts (
         id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE,
         initial_cash REAL NOT NULL, sweep INTEGER NOT NULL DEFAULT 1, sweep_start TEXT,
@@ -117,6 +144,7 @@ def delete_account(con, acct: int) -> None:
     if con.execute("SELECT COUNT(*) FROM paper_accounts").fetchone()[0] <= 1:
         raise ValueError("至少要留一個帳戶")
     con.execute("DELETE FROM paper_orders WHERE account = ?", [acct])
+    con.execute("DELETE FROM paper_auto WHERE account = ?", [acct])
     con.execute("DELETE FROM paper_accounts WHERE id = ?", [acct])
     con.commit()
 
@@ -176,8 +204,9 @@ def cancel(con, order_id: int, acct: int = 1) -> bool:
 
 def run_strategy(con, strategy: str, start: str, end: str, mode: str = "fixed", codes: list | None = None,
                  top_n: int | None = None, amount: float = 100_000, max_pos: int = 10, opt: dict | None = None,
-                 progress=None, acct: int = 1) -> dict:
+                 progress=None, acct: int = 1, llm: bool = False, batch: str | None = None) -> dict:
     """策略自動下單。codes 給個股清單；top_n 改成每天取模型排名前 N 名（只限模型策略）。
+    llm=True：每個訊號先給地端 LLM 審核。batch 給了就接在同一批後面（每日自動跟單用）。
     progress(已完成比例, 訊息) 給前端畫進度條。回傳這一批的摘要。"""
     import time
     import forecast as F
@@ -188,8 +217,14 @@ def run_strategy(con, strategy: str, start: str, end: str, mode: str = "fixed", 
     days = pd.DatetimeIndex(pd.read_sql("SELECT DISTINCT date FROM market WHERE symbol = 'TWII' AND date >= ? "
                                         "AND date <= ? ORDER BY date", con, params=[start, end],
                                         parse_dates=["date"])["date"])
-    batch = (f"{F.STRATEGIES[strategy]['name']}｜{F.EXIT_MODES[mode]}｜{start}~{end}｜"
-             f"{time.strftime('%m%d-%H%M%S')}{int(time.time() * 1000) % 1000:03d}")
+    if llm:
+        import llm_judge as J
+        why = J.available()
+        if why:
+            raise ValueError(f"LLM 審核需要地端模型：{why}")
+    batch = batch or (f"{F.STRATEGIES[strategy]['name']}{'＋LLM 審核' if llm else ''}｜{F.EXIT_MODES[mode]}｜"
+                      f"{start}~{end}｜{time.strftime('%m%d-%H%M%S')}{int(time.time() * 1000) % 1000:03d}")
+    n_skip = n_half = 0
     tag, note = f"auto:{strategy}", f"策略自動下單：{F.STRATEGIES[strategy]['name']}"
     closes = volumes = None
     if kind == "highvol":
@@ -203,6 +238,9 @@ def run_strategy(con, strategy: str, start: str, end: str, mode: str = "fixed", 
         top = {pd.Timestamp(d): list(g.nlargest(top_n, "pred")[["code", "pred"]].itertuples(index=False))
                for d, g in p.groupby("date")}
     pxs, busy, n_buy = {}, {}, 0
+    if codes == ["*"]:                      # 全部股票（含下市股；當天沒有價格的會自動跳過）
+        codes = [c for (c,) in con.execute("SELECT DISTINCT code FROM prices ORDER BY code")]
+    codes = codes or []
     if len(days) and not setting(con, "sweep_start", acct=acct):
         set_setting(con, "sweep_start", days[0].strftime("%Y-%m-%d"), acct)
 
@@ -212,10 +250,11 @@ def run_strategy(con, strategy: str, start: str, end: str, mode: str = "fixed", 
         return pxs[code]
 
     for i, d in enumerate(days):
-        if progress and i % 10 == 0:
-            progress(i / len(days), f"{d:%Y-%m-%d}　已進場 {n_buy} 筆")
+        if progress and (i % 10 == 0 or llm):
+            progress(i / len(days), f"{d:%Y-%m-%d}　已進場 {n_buy} 筆"
+                     + (f"，LLM 略過 {n_skip}、減半 {n_half}" if llm else ""))
         held = sum(1 for v in busy.values() if v > d)
-        cands = top.get(d, []) if top is not None else [(c, None) for c in (codes or [])]
+        cands = top.get(d, []) if top is not None else [(c, None) for c in codes]
         for code, pred in cands:
             if held >= max_pos:
                 break
@@ -239,17 +278,29 @@ def run_strategy(con, strategy: str, start: str, end: str, mode: str = "fixed", 
             shares = int(amount // plan["entry_est"])
             if shares < 1:
                 continue
+            note_i = note
+            if llm:
+                # 回測期間在模型訓練截止以前的，判斷可能被記憶污染；llm_eval.py 只評估截止之後
+                j = J.review(con, code, d.strftime("%Y-%m-%d"), strategy, plan, pit=True, account=acct, batch=batch)
+                note_i = f"{note}｜LLM {j['decision']}：{(j['reason'] or '')[:60]}"
+                if j["decision"] == "skip":
+                    n_skip += 1
+                    busy[code] = plan["exit_date"]          # 這一筆不做，持有期間內不再問
+                    continue
+                if j["decision"] == "half":
+                    n_half += 1
+                    shares = max(1, shares // 2)
             kw = dict(batch=batch, settle_now=False, acct=acct)
-            bid = place(con, d.strftime("%Y-%m-%d"), code, "buy", shares, tag, note, **kw)
+            bid = place(con, d.strftime("%Y-%m-%d"), code, "buy", shares, tag, note_i, **kw)
             stop, tgt = F.exit_levels(plan, mode)
             ex = plan["exit_date"]
             if mode == "fixed":
                 # 出場日前一個交易日收盤後送出，出場日開盤成交
-                place(con, plan["pre_exit"].strftime("%Y-%m-%d"), code, "sell", shares, tag, note,
+                place(con, plan["pre_exit"].strftime("%Y-%m-%d"), code, "sell", shares, tag, note_i,
                       parent=bid, **kw)
                 free = ex
             else:
-                place(con, d.strftime("%Y-%m-%d"), code, "sell", shares, tag, note, stop=stop, target=tgt,
+                place(con, d.strftime("%Y-%m-%d"), code, "sell", shares, tag, note_i, stop=stop, target=tgt,
                       expire_date=ex.strftime("%Y-%m-%d"), parent=bid, **kw)
                 hit = F.simulate_exit(px, plan["entry_date"], ex, stop, tgt)
                 free = hit[0] if hit else ex
@@ -261,7 +312,235 @@ def run_strategy(con, strategy: str, start: str, end: str, mode: str = "fixed", 
         progress(1.0, f"完成：{n_buy} 筆進場")
     sm = batch_summary(con, acct)
     sm = sm[sm["批次"] == batch]
-    return sm.iloc[0].to_dict() if len(sm) else {"批次": batch, "進場筆數": 0}
+    out = sm.iloc[0].to_dict() if len(sm) else {"批次": batch, "進場筆數": 0}
+    return out | ({"LLM 略過": n_skip, "LLM 減半": n_half} if llm else {})
+
+
+def run_llm_pick(con, start: str, end: str, n: int = 12, k: int = 5, amount: float = 100_000,
+                 progress=None, acct: int = 1, batch: str | None = None, pit: bool = True,
+                 strategy: str = LLM_PICK) -> dict:
+    """LLM 選股：每期從 5 日模型前 n 名裡由 LLM 挑最多 k 檔，每檔投入 amount × k × 權重，持有 5 日。
+    strategy=LLM_SCORE 用第二版（llm_judge.score：加基本面與新聞內文、每檔打分取前 k 名等權）。
+    pit=True 和 llm_select_eval.py 一樣只給當天以前已知的資料，往後實際跑的紀錄才能和評估比較。"""
+    import time
+    import forecast as F
+    import llm_judge as J
+
+    why = J.available()
+    if why:
+        raise ValueError(f"LLM 選股需要地端模型：{why}")
+    complete = set(F.complete_days(con, 5).index)
+    days = [d for (d,) in con.execute("SELECT date FROM market WHERE symbol = 'TWII' AND date >= ? AND date <= ? "
+                                      "ORDER BY date", [start, end]) if d in complete]
+    batch = batch or (f"{strategy_name(strategy)}｜{start}~{end}｜{time.strftime('%m%d-%H%M%S')}"
+                      f"{int(time.time() * 1000) % 1000:03d}")
+    tag, note = f"auto:{strategy}", "LLM 選股" if strategy == LLM_PICK else "LLM 打分"
+    if days and not setting(con, "sweep_start", acct=acct):
+        set_setting(con, "sweep_start", days[0], acct)
+    # 上一期還沒出場就不開新的一期（也接得上之前幾次執行留下的部位）
+    busy_to = con.execute("SELECT MAX(order_date) FROM paper_orders WHERE account = ? AND strategy = ? "
+                          "AND side = 'sell' AND status != 'cancelled'", [acct, tag]).fetchone()[0] or ""
+    n_period = n_buy = 0
+    for i, d in enumerate(days):
+        if progress:
+            progress(i / max(len(days), 1), f"{d}　第 {n_period} 期、已進場 {n_buy} 筆")
+        if d <= busy_to:
+            continue
+        c = J.candidates(con, d, n)
+        if c.empty:
+            continue
+        if strategy == LLM_SCORE:
+            s = J.score(con, d, c, k, account=acct, batch=batch)
+            r = {"picks": [dict(code=x, weight=1 / len(s["picks"]),
+                                reason=f"{s['scores'][x]:.0f} 分，{s['reasons'].get(x, '')}") for x in s["picks"]]}
+        else:
+            r = J.select(con, d, c, k, pit=pit, account=acct, batch=batch)
+        n_period += 1
+        pred = c.set_index("code")["pred"]
+        exits = []
+        for p in r["picks"]:
+            px = F.load_px(con, p["code"])
+            hist = px.loc[:pd.Timestamp(d)]
+            if len(hist) < 60 or hist.index[-1] != pd.Timestamp(d):
+                continue
+            plan = F.model_plan(hist, px.index, float(pred[p["code"]]), 5)
+            shares = int(amount * k * p["weight"] // plan["entry_est"])
+            if shares < 1:
+                continue
+            why = f"{note}（權重 {p['weight']:.0%}）：{p['reason'][:60]}"
+            bid = place(con, d, p["code"], "buy", shares, tag, why, batch=batch, settle_now=False, acct=acct)
+            pre = plan["pre_exit"].strftime("%Y-%m-%d")
+            place(con, pre, p["code"], "sell", shares, tag, why, batch=batch, settle_now=False, acct=acct, parent=bid)
+            exits.append(pre)
+            n_buy += 1
+        if exits:
+            busy_to = max(exits)
+    settle(con, acct)
+    if progress:
+        progress(1.0, f"完成：{n_period} 期、{n_buy} 筆進場")
+    sm = batch_summary(con, acct)
+    sm = sm[sm["批次"] == batch]
+    out = sm.iloc[0].to_dict() if len(sm) else {"批次": batch, "進場筆數": 0}
+    return out | {"LLM 選股期數": n_period}
+
+
+def _pm_holdings(con, acct: int, tag: str, d: str, equity: float, cal: list) -> tuple:
+    """d 收盤時這個策略的持股：（{代號: 股數}, {代號: dict(w, pnl, days)} 給 LLM 看）。
+    待成交的單也算進去（已經送出、會照下）；持有天數從這次部位建立那天算起。"""
+    od = pd.read_sql("SELECT code, side, shares, fill_price, fee, COALESCE(fill_date, order_date) AS day "
+                     "FROM paper_orders WHERE account = ? AND strategy = ? AND status IN ('filled', 'pending') "
+                     "AND order_date <= ? ORDER BY day, id", con, params=[acct, tag, d])
+    shares, info = {}, {}
+    for code, g in od.groupby("code"):
+        sh, cost, opened = 0, 0.0, None
+        for r in g.itertuples():
+            if r.side == "buy":
+                opened = opened if sh > 0 else r.day
+                sh += r.shares
+                cost += r.shares * (r.fill_price if pd.notna(r.fill_price) else 0) + (r.fee or 0)
+            else:
+                cost -= cost / sh * r.shares if sh else 0
+                sh -= r.shares
+        if sh <= 0:
+            continue
+        px = con.execute("SELECT close FROM prices WHERE code = ? AND date <= ? ORDER BY date DESC LIMIT 1",
+                         [code, d]).fetchone()[0]
+        shares[code] = sh
+        info[code] = dict(w=sh * px / equity, pnl=sh * px / cost - 1 if cost > 0 else 0.0,
+                          days=sum(1 for x in cal if opened < x <= d))
+    return shares, info
+
+
+def run_llm_pm(con, start: str, end: str, n: int = 8, k: int = 10, max_w: float = 0.2, every: int = 5,
+               min_trade: float = 0.02, progress=None, acct: int = 1, batch: str | None = None) -> dict:
+    """LLM 自主操盤：start～end 之間每 every 個交易日問一次 LLM 目標投資組合，照差額下單。
+    n：每個策略來源放進候選池的檔數；k：最多持有幾檔；max_w：單檔上限。"""
+    import time
+    import forecast as F
+    import llm_judge as J
+
+    why = J.available()
+    if why:
+        raise ValueError(f"LLM 自主操盤需要地端模型：{why}")
+    tag = f"auto:{LLM_PM}"
+    complete = set(F.complete_days(con, 5).index)
+    cal = [d for (d,) in con.execute("SELECT date FROM market WHERE symbol = 'TWII' AND date <= ? ORDER BY date",
+                                     [end])]
+    days = [d for d in cal if d >= start and d in complete]
+    batch = batch or f"{LLM_NAMES[LLM_PM]}｜{start}~{end}｜{time.strftime('%m%d-%H%M%S')}"
+    if days and not setting(con, "sweep_start", acct=acct):
+        set_setting(con, "sweep_start", days[0], acct)
+    # 接著之前的執行：這個帳戶上一次做決定的日子（帳戶清空後就不算）
+    first = con.execute("SELECT MIN(order_date) FROM paper_orders WHERE account = ? AND strategy = ?",
+                        [acct, tag]).fetchone()[0]
+    last = con.execute("SELECT MAX(asof) FROM llm_decisions WHERE kind = 'manage' AND account = ? AND asof >= ? "
+                       "AND asof < ? AND error IS NULL", [acct, first, start]).fetchone()[0] if first else None
+    n_dec = n_buy = n_sell = 0
+    for i, d in enumerate(days):
+        if progress:
+            progress(i / max(len(days), 1), f"{d}　已決定 {n_dec} 次、買 {n_buy} 筆、賣 {n_sell} 筆")
+        if last and sum(1 for x in cal if last < x <= d) < every:
+            continue
+        settle(con, acct)
+        cv = _curve(con, pd.read_sql("SELECT * FROM paper_orders WHERE account = ? AND status = 'filled' "
+                                     "ORDER BY fill_date, id", con, params=[acct]), initial_cash(con, acct))
+        cv = cv[cv.index <= pd.Timestamp(d)] if len(cv) else cv
+        equity = float(cv.iloc[-1]) if len(cv) else initial_cash(con, acct)
+        shares, held = _pm_holdings(con, acct, tag, d, equity, cal)
+        r = J.manage(con, d, held, k=k, max_w=max_w, n=n, account=acct, batch=batch)
+        last, n_dec = d, n_dec + 1
+        tgt = {x["code"]: x for x in r["targets"]}
+        sold = {x["code"]: f"賣出：{x['reason']}" for x in r.get("sells", [])}
+        sells, buys = [], []
+        for code in sorted(set(shares) | set(tgt)):
+            px = con.execute("SELECT close FROM prices WHERE code = ? AND date <= ? ORDER BY date DESC LIMIT 1",
+                             [code, d]).fetchone()[0]
+            have = shares.get(code, 0)
+            w = tgt[code]["weight"] if code in tgt else 0.0
+            diff = w * equity - have * px
+            why = f"LLM 自主操盤（目標 {w:.0%}）：{(tgt[code]['reason'] if code in tgt else sold.get(code, '超過檔數上限，賣出'))[:80]}"
+            if w == 0 and have:
+                sells.append((code, have, why))
+            elif abs(diff) >= min_trade * equity:
+                if diff < 0:
+                    sells.append((code, min(have, int(round(-diff / px))), why))
+                elif int(diff // px) >= 1:
+                    buys.append((code, int(diff // px), why))
+        # 先賣後買，買的錢不夠時 settle 會賣 0050
+        for side, rows in (("sell", sells), ("buy", buys)):
+            for code, sh, why in rows:
+                if sh >= 1:
+                    place(con, d, code, side, sh, tag, why, batch=batch, settle_now=False, acct=acct)
+        n_sell += len(sells)
+        n_buy += len(buys)
+    settle(con, acct)
+    if progress:
+        progress(1.0, f"完成：決定 {n_dec} 次、買 {n_buy} 筆、賣 {n_sell} 筆")
+    sm = batch_summary(con, acct)
+    sm = sm[sm["批次"] == batch]
+    out = sm.iloc[0].to_dict() if len(sm) else {"批次": batch, "進場筆數": 0}
+    return out | {"LLM 決定次數": n_dec, "買單": n_buy, "賣單": n_sell}
+
+
+def auto_config(con, acct: int) -> dict | None:
+    r = pd.read_sql("SELECT * FROM paper_auto WHERE account = ?", con, params=[acct])
+    # 空欄位讀出來是 NaN，而 NaN 在 if 裡算 True；統一換成 None
+    return None if r.empty else {k: (None if pd.isna(v) else v) for k, v in r.iloc[0].to_dict().items()}
+
+
+def set_auto(con, acct: int, strategy: str, mode: str = "fixed", codes: list | None = None,
+             top_n: int | None = None, amount: float = 100_000, max_pos: int = 10, llm: bool = False,
+             start: str | None = None, enabled: bool = True) -> None:
+    """存這個帳戶的每日自動跟單設定；start 是從哪一天開始（含當天，之前的日子不補）。
+    last_run 記的是「已經跑完的最後一天」，所以存 start 的前一個交易日。"""
+    prev = con.execute("SELECT MAX(date) FROM market WHERE symbol = 'TWII' AND date < ?",
+                       [start]).fetchone()[0] if start else None
+    con.execute("INSERT OR REPLACE INTO paper_auto (account, strategy, mode, codes, top_n, amount, max_pos, llm, "
+                "last_run, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [acct, strategy, mode, ",".join(codes) if codes else None, top_n, float(amount), int(max_pos),
+                 int(llm), prev, int(enabled)])
+    con.commit()
+
+
+def run_auto(con, acct: int | None = None, progress=None) -> list:
+    """每日自動跟單：從上次跑到的隔天接著跑到 DB 最新一天。acct=None 跑所有啟用的帳戶。"""
+    cfgs = pd.read_sql("SELECT * FROM paper_auto WHERE enabled = 1" + (" AND account = ?" if acct else ""), con,
+                       params=[acct] if acct else [])
+    last = con.execute("SELECT MAX(date) FROM prices").fetchone()[0]
+    out = []
+    for c in cfgs.itertuples():
+        start = c.last_run or last
+        if c.last_run:
+            nxt = con.execute("SELECT MIN(date) FROM market WHERE symbol = 'TWII' AND date > ?",
+                              [c.last_run]).fetchone()[0]
+            if not nxt or nxt > last:
+                out.append({"帳戶": c.account, "結果": f"已經跑到 {c.last_run}，沒有新的交易日"})
+                continue
+            start = nxt
+        name = con.execute("SELECT name FROM paper_accounts WHERE id = ?", [c.account]).fetchone()[0]
+        top_n = int(c.top_n) if pd.notna(c.top_n) and c.top_n else None
+        # 一個帳戶失敗（例如 Ollama 沒開）不影響其他帳戶；last_run 不前進，下次會從同一天補跑
+        try:
+            if c.strategy == LLM_PM:
+                r = run_llm_pm(con, start, last, n=top_n or 8, k=int(c.max_pos), progress=progress,
+                               acct=int(c.account), batch=f"每日自動跟單｜{name}")
+            elif c.strategy in LLM_NAMES:
+                r = run_llm_pick(con, start, last, n=top_n or 12, k=int(c.max_pos), amount=c.amount,
+                                 progress=progress, acct=int(c.account), batch=f"每日自動跟單｜{name}",
+                                 strategy=c.strategy)
+            else:
+                r = run_strategy(con, c.strategy, start, last, c.mode,
+                                 codes=c.codes.split(",") if isinstance(c.codes, str) else None, top_n=top_n,
+                                 amount=c.amount, max_pos=int(c.max_pos), progress=progress, acct=int(c.account),
+                                 llm=bool(c.llm), batch=f"每日自動跟單｜{name}")
+        except Exception as e:
+            out.append({"帳戶": c.account, "結果": f"失敗（{type(e).__name__}: {e}），下次從 {start} 補跑",
+                        "失敗": True})
+            continue
+        con.execute("UPDATE paper_auto SET last_run = ? WHERE account = ?", [last, c.account])
+        con.commit()
+        out.append({"帳戶": c.account, "結果": f"{start} ~ {last}", **r})
+    return out
 
 
 def batch_summary(con, acct: int = 1) -> pd.DataFrame:
@@ -273,8 +552,21 @@ def batch_summary(con, acct: int = 1) -> pd.DataFrame:
     for b, g in od.groupby("batch", sort=False):
         buys, sells = g[g["side"] == "buy"], g[g["side"] == "sell"]
         pnl, open_n = [], 0
-        # 自動下單一定是一買一賣成對、依序寫入
-        for bu, se in zip(buys.itertuples(), sells.itertuples()):
+        pm = (g["strategy"] == f"auto:{LLM_PM}").all()
+        if pm:
+            # 自主操盤會加碼、減碼，買賣不成對：每檔用平均成本法，每筆賣出算一筆已平倉
+            for _, h in g[g["status"] == "filled"].sort_values(["fill_date", "id"]).groupby("code"):
+                sh, cost = 0, 0.0
+                for r in h.itertuples():
+                    if r.side == "buy":
+                        sh, cost = sh + r.shares, cost + r.shares * r.fill_price + r.fee
+                    elif sh:
+                        avg = cost / sh
+                        pnl.append(r.shares * r.fill_price - r.fee - r.tax - avg * r.shares)
+                        sh, cost = sh - r.shares, cost - avg * r.shares
+                open_n += sh > 0
+        # 其他自動下單一定是一買一賣成對、依序寫入
+        for bu, se in () if pm else zip(buys.itertuples(), sells.itertuples()):
             if bu.status != "filled":
                 continue
             if se.status != "filled":
@@ -304,9 +596,22 @@ def reset(con, cash: float = INITIAL_CASH, sweep: bool | None = None, acct: int 
     con.commit()
 
 
-def _next_open(con, code: str, after: str):
-    return con.execute(f"SELECT date, open, close FROM {_table(code)} WHERE code = ? AND date > ? "
-                       "ORDER BY date LIMIT 1", [code, after]).fetchone()
+def _next_open(con, code: str, after: str, live: dict | None = None):
+    r = con.execute(f"SELECT date, open, close FROM {_table(code)} WHERE code = ? AND date > ? "
+                    "ORDER BY date LIMIT 1", [code, after]).fetchone()
+    lb = (live or {}).get(code)
+    if not r and lb and lb["date"] > after:
+        return lb["date"], lb["open"], lb["close"]
+    return r
+
+
+def _live(con) -> dict:
+    """今天的盤中 K 棒（intraday.live_bars）；盤中報價沒在跑或 DB 還沒接上昨天就是空的。"""
+    try:
+        import intraday
+        return intraday.live_bars(con)
+    except Exception:
+        return {}
 
 
 # ---------------------------------------------------------------- 結算
@@ -322,23 +627,28 @@ def settle(con, acct: int | None = 1) -> int:
     if od.empty:
         con.commit()
         return 0
+    live = _live(con)                      # 盤中：今天的 K 棒接在日線後面，開盤成交、停損停利盤中觸發
     for i, r in od[od["status"] == "pending"].iterrows():
         if pd.notna(r.get("expire_date")):
-            hit = _conditional(con, r)
+            hit = _conditional(con, r, live)
             if hit:
                 od.loc[i, ["fill_date", "fill_price", "trigger"]] = [hit[0].strftime("%Y-%m-%d"), hit[1], hit[2]]
             continue
-        nx = _next_open(con, r["code"], r["order_date"])
+        nx = _next_open(con, r["code"], r["order_date"], live)
         if nx:
             px = nx[1] if nx[1] and nx[1] > 0 else nx[2]
             od.loc[i, ["fill_date", "fill_price"]] = [nx[0], float(px)]
-    # 同一天先賣後買：賣出的錢當天開盤就能拿去買
-    od = od[od["fill_date"].notna()].assign(_b=lambda x: x["side"] == "buy") \
+    # 同一天：開盤的賣單、開盤的買單、盤中碰到停損／目標的賣單。開盤賣出的錢當天開盤就能拿去買；
+    # 盤中觸發的賣單排在買單後面，進場當天就碰到停損才賣得到剛買的股票
+    od = od[od["fill_date"].notna()]
+    od = od.assign(_b=np.where(od["side"] == "buy", 1, np.where(od["trigger"].isin(["停損", "目標"]), 2, 0))) \
         .sort_values(["fill_date", "_b", "id"])
     cash, pos, n_new, upd = initial_cash(con, acct), {}, 0, []
     state = dict(con.execute("SELECT id, status FROM paper_orders WHERE account = ?", [acct]))
     sweep = sweep_on(con, acct)
     etf = dict(con.execute("SELECT date, open FROM etf_prices WHERE code = ?", [ETF])) if sweep else {}
+    if sweep and ETF in live:
+        etf.setdefault(live[ETF]["date"], live[ETF]["open"])
     units, swp = 0, []
 
     def etf_trade(day: str, n: int) -> None:
@@ -402,15 +712,19 @@ def settle(con, acct: int | None = 1) -> int:
     return n_new
 
 
-def _conditional(con, r):
-    """條件賣單：下單日的下一個交易日起照停損／目標檢查，回傳（成交日, 價, 原因）或 None（還沒觸發）。"""
+def _conditional(con, r, live: dict | None = None):
+    """條件賣單：下單日的下一個交易日起照停損／目標檢查，回傳（成交日, 價, 原因）或 None（還沒觸發）。
+    live 是今天的盤中 K 棒：高低是到目前為止的，碰到就成交，同一根碰到兩邊照日線規則算停損。"""
     import forecast
-    nx = _next_open(con, r["code"], r["order_date"])
+    nx = _next_open(con, r["code"], r["order_date"], live)
     if not nx:
         return None
     px = pd.read_sql("SELECT date, open, high, low, close FROM prices WHERE code = ? AND date >= ? AND date <= ? "
                      "ORDER BY date", con, params=[r["code"], nx[0], r["expire_date"]],
                      parse_dates=["date"]).set_index("date")
+    lb = (live or {}).get(r["code"])
+    if lb and lb["date"] <= r["expire_date"] and (px.empty or px.index[-1] < pd.Timestamp(lb["date"])):
+        px.loc[pd.Timestamp(lb["date"])] = [lb["open"], lb["high"], lb["low"], lb["close"]]
     stop = r["stop"] if pd.notna(r["stop"]) else None
     tgt = r["target"] if pd.notna(r["target"]) else None
     return forecast.simulate_exit(px, nx[0], r["expire_date"], stop, tgt)
@@ -421,7 +735,8 @@ def orders(con, acct: int = 1) -> pd.DataFrame:
 
 
 def portfolio(con, acct: int = 1) -> dict:
-    """現金、持股（平均成本法）、已實現損益、逐日淨值。持股用 DB 裡最新收盤評價。"""
+    """現金、持股（平均成本法）、已實現損益、逐日淨值。持股用 DB 裡最新收盤評價，盤中用即時價（換成還原價口徑）。"""
+    live = _live(con)
     od = pd.read_sql("SELECT * FROM paper_orders WHERE account = ? AND status = 'filled' ORDER BY fill_date, id",
                      con, params=[acct])
     cash0 = initial_cash(con, acct)
@@ -443,6 +758,8 @@ def portfolio(con, acct: int = 1) -> dict:
             continue
         last = con.execute(f"SELECT date, close FROM {_table(code)} WHERE code = ? ORDER BY date DESC LIMIT 1",
                            [code]).fetchone()
+        if code in live:
+            last = (f"{live[code]['date']} 盤中", live[code]["close"])
         mv = sh * last[1]
         # 未實現損益扣掉假設現在賣出的手續費與證交稅，和已實現損益同一個口徑
         rows.append(dict(code=code, shares=sh, avg_cost=cost / sh, last_date=last[0], last=last[1],
@@ -450,11 +767,11 @@ def portfolio(con, acct: int = 1) -> dict:
     pos = pd.DataFrame(rows, columns=["code", "shares", "avg_cost", "last_date", "last", "value", "unrealized"])
     equity = cash + pos["value"].sum()
     return dict(initial=cash0, cash=cash, positions=pos, realized=realized,
-                unrealized=float(pos["unrealized"].sum()), equity=equity, curve=_curve(con, od, cash0))
+                unrealized=float(pos["unrealized"].sum()), equity=equity, curve=_curve(con, od, cash0, live))
 
 
-def _curve(con, od: pd.DataFrame, cash0: float) -> pd.Series:
-    """逐日淨值：每天收盤時的現金＋持股市值。"""
+def _curve(con, od: pd.DataFrame, cash0: float, live: dict | None = None) -> pd.Series:
+    """逐日淨值：每天收盤時的現金＋持股市值。盤中多一天，用即時價評價。"""
     if od.empty:
         return pd.Series(dtype=float)
     codes = sorted(od["code"].unique())
@@ -463,7 +780,13 @@ def _curve(con, od: pd.DataFrame, cash0: float) -> pd.Series:
                      f"SELECT date, code, close FROM etf_prices WHERE code IN ({q}) AND date >= ?", con,
                      params=codes + [od["fill_date"].min()] + codes + [od["fill_date"].min()],
                      parse_dates=["date"]) \
-        .pivot(index="date", columns="code", values="close").sort_index().ffill()
+        .pivot(index="date", columns="code", values="close").sort_index()
+    today = {c: live[c]["close"] for c in codes if c in (live or {})}
+    if today:
+        d = pd.Timestamp(next(iter(live.values()))["date"])
+        if not len(px) or px.index[-1] < d:
+            px = pd.concat([px, pd.DataFrame(today, index=[d])])
+    px = px.reindex(columns=codes).ffill()
     od = od.assign(fill_date=pd.to_datetime(od["fill_date"]))
     sgn = np.where(od["side"] == "buy", 1, -1)
     flow = -(sgn * od["shares"] * od["fill_price"]) - od["fee"] - od["tax"].fillna(0)

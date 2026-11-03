@@ -65,6 +65,41 @@ def _hero(sig: str, code: str, px: pd.DataFrame, rv: pd.DataFrame) -> None:
         f'</div>', unsafe_allow_html=True)
 
 
+def _live(code: str) -> None:
+    """盤中即時報價（intraday.py 開盤時每 10 秒寫進 DB）。盤中每 10 秒重畫這一塊，收盤後顯示今天最後一筆。"""
+    import intraday as I
+
+    @st.fragment(run_every=10 if I.is_open() else None)
+    def box():
+        con = I.connect()
+        q = I.quote(con, code)
+        on = code in I.watchlist(con)
+        c1, c2 = st.columns([1, 0.16], vertical_alignment="center")
+        if c2.button("移出自選" if on else "加入自選", key="watch_btn", type="tertiary", width="stretch",
+                     help="自選清單的股票盤中會抓即時報價（模擬帳戶的持股和今天的候選股本來就會抓）"):
+            (I.remove_watch if on else I.add_watch)(con, code)
+            st.rerun(scope="fragment")
+        if not q:
+            c1.caption("今天沒有盤中報價。平日 09:00～13:30 由排程跑 intraday.py 抓取，"
+                       + ("這檔在自選清單裡，下一分鐘內開始追。" if on else "這檔不在追蹤清單，按「加入自選」就會開始追。"))
+            return
+        chg = q["last"] / q["prev_close"] - 1 if q["last"] and q["prev_close"] else None
+        c1.markdown(f'<div class="sbar"><b>盤中</b> {common.esc(q["time"])}<i>·</i>證交所即時（原始價，'
+                    f'不是上面的還原價）{"<i>·</i>每 10 秒更新" if I.is_open() else "<i>·</i>已收盤"}</div>',
+                    unsafe_allow_html=True)
+        common.kpis([("現價", f'{common.num(q["last"])} {common.signed_html(chg, 2)}', f'昨收 {common.num(q["prev_close"])}', True),
+                     ("開盤", common.num(q["open"]), ""), ("最高", common.num(q["high"]), ""),
+                     ("最低", common.num(q["low"]), ""), ("累計量", f'{common.num(q["volume"], 0)} 張', "")])
+        t = I.ticks(con, code)
+        if len(t) > 1:
+            fig = go.Figure(go.Scatter(x=t.index, y=t["price"], name="現價", line=dict(color=common.C_STRAT, width=1.6)))
+            fig.add_hline(y=q["prev_close"], line=dict(color=common.C_POOL, width=1, dash="dot"),
+                          annotation_text="昨收", annotation_position="bottom right")
+            common.chart(common.fig_layout(fig, "今日走勢", 260, legend=False))
+
+    box()
+
+
 def _ret(px: pd.Series, n: int):
     return px.iloc[-1] / px.iloc[-n - 1] - 1 if len(px) > n else None
 
@@ -195,6 +230,7 @@ def main():
     flags = common.revenue_flags(sig)
     rv = flags[flags["code"] == code].sort_values("ym")
     _hero(sig, code, px, rv)
+    _live(code)
     tabs = st.tabs(SECTIONS)
     with tabs[0]:
         _price(sig, px)

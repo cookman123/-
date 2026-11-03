@@ -81,10 +81,72 @@ def _factors(sig: str) -> None:
                "IC 顯著但多空扣成本後為負的，是排序相關而不是可交易的訊號。")
 
 
+def _kv(sig: str, rel: str) -> dict:
+    d = common.result_csv(sig, rel, index_col=0)
+    return {} if d.empty else d.iloc[:, 0].to_dict()
+
+
+def _f(x, kind: str = "pct") -> str:
+    v = common._num(x)
+    if v is None:
+        return "—"
+    return {"pct": f"{v:+.2%}", "rate": f"{v:.1%}", "t": f"{v:.2f}"}[kind]
+
+
+def _llm(sig: str) -> None:
+    """地端 LLM（gemma3）的評估：分工原則、審核、選股、隨機同檔數對照、決策存證、可交易性。"""
+    st.caption("分工：能用規則查表或回測的放量化端（候選池、處置／注意股排除、進出場）；"
+               "讀新聞、整理理由、在規則給的範圍內挑選才交給地端 LLM，而且每一項都要和規則、隨機對照比過才採用。")
+    rv, se = _kv(sig, "llm_eval/summary.csv"), _kv(sig, "llm_select_eval/summary.csv")
+    rc = common.result_csv(sig, "llm_random_control/summary.csv")
+    common.kpis([
+        ("審核：LLM − 規則（每期）", common.signed_html(common._num(rv.get("差（LLM−規則）")), 3),
+         f"t {_f(rv.get('差 t'), 't')}・略過比例 {_f(rv.get('略過比例'), 'rate')}"),
+        ("選股：LLM − 規則前 5（每期）", common.signed_html(common._num(se.get("A−B")), 3),
+         f"t {_f(se.get('A−B t'), 't')}・和規則前 5 名平均重疊 {common.num(se.get('和規則前 5 名重疊（檔）'), 1)} 檔"),
+        ("選股：隨機同檔數 ≥ LLM 的機率",
+         "—" if rc.empty else f"{rc.iloc[0]['p（隨機 ≥ LLM）']:.0%}", "5000 次，事後補充"),
+    ])
+    st.caption(f"採用規則（事前寫死）：差 > 0 且 t > 2。目前結論：{rv.get('結論', '—')}；{se.get('結論', '—')}。"
+               f"期間 {rv.get('期間', '—')}，只看 gemma3 訓練截止（2024-08）之後。")
+    if not rc.empty:
+        fmt = {"LLM 每期": "{:+.3%}", "隨機每期（平均）": "{:+.3%}", "隨機 95% 分位": "{:+.3%}", "p（隨機 ≥ LLM）": "{:.3f}"}
+        common.table(common.styled(rc, fmt=fmt, signed=["LLM 每期", "隨機每期（平均）"]), hide_index=True)
+        st.caption("llm_random_control.py：LLM 挑了 k 檔，就從同一群候選隨機挑 k 檔重複 5000 次（取自 tw-stock-quant 的"
+                   "隨機對照組）。p 大代表隨機挑也常做得一樣好。")
+
+    st.markdown("**候選池的可交易性**（restricted_check.py）")
+    rs = _kv(sig, "restricted_check/summary.csv")
+    if not rs:
+        common.empty("還沒有結果：先跑 python fetch_restricted.py --source twse／tpex，再跑 python restricted_check.py。")
+    else:
+        common.kpis([
+            ("候選裡的處置／注意股", _f(rs.get("被標記比例"), "rate"), f"有標記的期數 {_f(rs.get('有標記的期數比例'), 'rate')}"),
+            ("被標記的平均報酬", common.signed_html(common._num(rs.get("被標記的平均報酬")), 2),
+             f"沒被標記 {_f(rs.get('沒被標記的平均報酬'))}"),
+            ("排除後 − 不排除（每期）", common.signed_html(common._num(rs.get("差（排除 − 不排除）")), 3),
+             f"t {_f(rs.get('差 t'), 't')}・{rs.get('期間', '')}"),
+        ])
+        st.caption("處置股要預收款券、分盤撮合，隔日開盤價實際上多半買不到；回測硬算它們的報酬會讓結果偏好。"
+                   "所以 LLM 的候選池先用規則排除（llm_judge.candidates），不讓 LLM 自己判斷。")
+
+    st.markdown("**決策存證**（attest_local.py）")
+    led = common.ROOT / "attest" / "ledger.jsonl"
+    if not led.exists():
+        common.empty("還沒有存證：跑 python attest_local.py stamp，之後每天跟單後再跑一次，並把 attest/ 提交到 git。")
+    else:
+        import json as _json
+        last = _json.loads(led.read_text(encoding="utf-8").strip().splitlines()[-1])
+        st.markdown(f"最後一次存證 #{last['seq']}：{last['time'][:16].replace('T', ' ')}，涵蓋 {last['n_rows']} 筆 LLM 決策，"
+                    f"digest `{last['digest'][:16]}…`。用 `python attest_local.py verify` 檢查之後有沒有被改。")
+
+
 def main():
     sig = common.data_sig()
     common.page_title("策略", "回測與檢定結果（由各腳本產生，這頁只讀）")
-    t1, t2, t3, t4 = st.tabs(["高波動＋趨勢過濾", "beta 分解", "隔日預測", "季頻特徵檢定"])
+    t1, t2, t3, t4, t5 = st.tabs(["高波動＋趨勢過濾", "beta 分解", "隔日預測", "季頻特徵檢定", "地端 LLM 評估"])
+    with t5:
+        _llm(sig)
     with t1:
         _spec(sig)
     with t2:
